@@ -54,32 +54,31 @@ export function Hero() {
     <section className="relative min-h-screen flex items-center pt-16 overflow-hidden">
       <HeroBackground />
 
-      <div className="max-w-6xl mx-auto px-5 md:px-8 lg:px-12 w-full py-20 md:py-28">
-        <div className="flex flex-col items-start">
+      <div className="max-w-6xl mx-auto px-5 md:px-8 lg:px-12 w-full py-16 md:py-24">
+        <div className="flex flex-col-reverse md:flex-row items-center gap-10 md:gap-12 lg:gap-16">
 
-          {/* Copy */}
+          {/* LEFT: copy */}
           <motion.div
-            className="w-full max-w-2xl flex flex-col gap-6"
+            className="flex-1 flex flex-col gap-6 text-center md:text-left items-center md:items-start"
             initial={{ opacity: 0, y: 28 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           >
-            <h1 className="font-display font-black text-5xl md:text-7xl text-ink leading-[1.05]">
+            <h1 className="font-display font-black text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-ink leading-[1.05]">
               Vendes por Instagram. Pero estás dejando{' '}
               <span className="text-brand-500 draw-underline">plata sobre la mesa</span>{' '}
               todos los días.
             </h1>
 
-            <p className="text-lg md:text-xl text-muted font-medium max-w-xl leading-relaxed">
+            <p className="text-base md:text-lg lg:text-xl text-muted font-medium max-w-xl leading-relaxed">
               Te montamos tu tienda online profesional en{' '}
               <strong className="text-ink">72 horas</strong> — con tu{' '}
               <strong className="text-ink">.com propio</strong>,{' '}
               <strong className="text-ink">tasa BCV automática</strong> y{' '}
-              <strong className="text-ink">WhatsApp Business conectado</strong>. Para que dejes
-              de responder "el precio está por DM" y empieces a vender hasta dormido.
+              <strong className="text-ink">WhatsApp Business conectado</strong>.
             </p>
 
-            <div className="flex flex-col gap-3 items-start">
+            <div className="flex flex-col gap-3 items-center md:items-start">
               <OrangeGlowButton size="lg" whatsapp onClick={() => navigate('/pide-tu-demo')}>
                 Quiero mi demo →
               </OrangeGlowButton>
@@ -89,8 +88,34 @@ export function Hero() {
             </div>
           </motion.div>
 
-        </div>
+          {/* RIGHT: floating logo */}
+          <motion.div
+            className="flex-shrink-0 flex justify-center items-center"
+            initial={{ opacity: 0, scale: 0.85 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.7, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <motion.img
+              src="/logo.png"
+              alt="Tienda Pana"
+              loading="eager"
+              animate={{
+                y:      [0, -18, 0],
+                rotate: [0, 2, 0],
+              }}
+              transition={{
+                duration: 4,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
+              className="w-[200px] h-[200px] sm:w-[260px] sm:h-[260px] md:w-[300px] md:h-[300px] lg:w-[380px] lg:h-[380px] object-contain"
+              style={{
+                filter: 'drop-shadow(0 20px 48px oklch(65% 0.18 40 / 0.30))',
+              }}
+            />
+          </motion.div>
 
+        </div>
       </div>
     </section>
   )
