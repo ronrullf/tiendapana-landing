@@ -28,7 +28,7 @@ type FormValues = z.infer<typeof schema>
 
 // ─── Radio card options ────────────────────────────────────────────────────────
 const FACTURACION_OPTS = ['Menos de $500', '$500 - $1.500', '$1.500 - $3.000', 'Más de $3.000']
-const CUANDO_OPTS      = ['Esta semana 🔥', 'En 2-4 semanas', 'En 1-2 meses', 'Solo estoy explorando']
+const CUANDO_OPTS      = ['Cuanto antes, en 72 horas 🔥', 'En 1-2 semanas', 'Solo estoy explorando']
 const PRODUCTOS_OPTS   = ['1 - 15 productos', '15 - 50 productos', '50 - 200 productos', 'Más de 200 productos', 'Aún no sé']
 const WA_OPTS          = [{ value: 'si', label: 'Sí, ya lo uso' }, { value: 'no', label: 'No todavía' }]
 

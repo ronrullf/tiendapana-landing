@@ -10,10 +10,9 @@ export type DemoFormData = {
 }
 
 const cuandoLanzarMap: Record<string, string> = {
-  'Esta semana 🔥':      'esta misma semana',
-  'En 2-4 semanas':      'en las próximas 2 a 4 semanas',
-  'En 1-2 meses':        'en 1 o 2 meses',
-  'Solo estoy explorando': 'cuando esté listo, todavía estoy explorando',
+  'Cuanto antes, en 72 horas 🔥': 'cuanto antes, en 72 horas',
+  'En 1-2 semanas':               'en 1 o 2 semanas',
+  'Solo estoy explorando':        'cuando esté listo, todavía estoy explorando',
 }
 
 export function buildWhatsAppMessage(data: DemoFormData): string {
