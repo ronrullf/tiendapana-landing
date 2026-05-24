@@ -9,7 +9,6 @@ import { HowItWorks } from '@/components/sections/HowItWorks'
 import { BeforeAfter } from '@/components/sections/BeforeAfter'
 import { SocialProof } from '@/components/sections/SocialProof'
 import { Authority } from '@/components/sections/Authority'
-import { ReelsSection } from '@/components/sections/ReelsSection'
 import { FAQ } from '@/components/sections/FAQ'
 import { FinalCTA } from '@/components/sections/FinalCTA'
 import { Footer } from '@/components/sections/Footer'
@@ -29,8 +28,7 @@ export default function Landing() {
         <HowItWorks />
         <BeforeAfter />
         <SocialProof />
-        <ReelsSection />
-        <Authority />
+<Authority />
         <FAQ />
         <FinalCTA />
       </main>
