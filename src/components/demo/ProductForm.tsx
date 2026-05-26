@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { Plus, X, ImageIcon, Camera, FolderOpen } from 'lucide-react'
+import { showFieldToast } from '@/lib/fieldToast'
 import type { Product } from './ProductCard'
 
 interface Props {
@@ -14,7 +15,6 @@ export function ProductForm({ index, onAdd, onRemove, canRemove }: Props) {
   const [price, setPrice]       = useState('')
   const [imageUrl, setImageUrl] = useState('')
   const [added, setAdded]       = useState(false)
-  const [error, setError]       = useState('')
   const galleryRef = useRef<HTMLInputElement>(null)
   const cameraRef  = useRef<HTMLInputElement>(null)
 
@@ -28,10 +28,9 @@ export function ProductForm({ index, onAdd, onRemove, canRemove }: Props) {
   }
 
   const handleAdd = () => {
-    if (!name.trim())      { setError('Ponle un nombre al producto'); return }
-    if (!price || isNaN(Number(price)) || Number(price) <= 0) { setError('Precio inválido'); return }
-    if (!imageUrl)         { setError('Sube una foto del producto'); return }
-    setError('')
+    if (!name.trim())                                          { showFieldToast('el nombre del producto'); return }
+    if (!price || isNaN(Number(price)) || Number(price) <= 0) { showFieldToast('el precio del producto'); return }
+    if (!imageUrl)                                             { showFieldToast('la foto del producto'); return }
     onAdd({
       id: crypto.randomUUID(),
       name: name.trim(),
@@ -156,8 +155,6 @@ export function ProductForm({ index, onAdd, onRemove, canRemove }: Props) {
           style={{ fontSize: '16px' }}
         />
       </div>
-
-      {error && <p className="text-xs text-red-500">{error}</p>}
 
       <button
         type="button"

@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { showFieldToast } from '@/lib/fieldToast'
 import { WhatsAppPreview } from '@/components/demo-request/WhatsAppPreview'
 import { SuccessScreen } from '@/components/demo-request/SuccessScreen'
 import { buildWhatsAppMessage, type DemoFormData } from '@/lib/buildWhatsAppMessage'
@@ -175,13 +176,22 @@ export default function DemoRequestPage() {
     }, 800)
   }
 
+  const FIELD_LABELS: Partial<Record<keyof FormValues, string>> = {
+    nombre:       'tu nombre',
+    negocio:      'el tipo de negocio',
+    instagram:    'tu usuario de Instagram',
+    facturacion:  'el rango de facturación mensual',
+    cuandoLanzar: 'cuándo quieres lanzar la tienda',
+  }
+
   const onError = (errs: typeof errors) => {
-    const count = Object.keys(errs).length
-    toast.error(`Te faltan ${count} campo${count > 1 ? 's' : ''} por llenar`)
-    // scroll to first error
+    const order: (keyof FormValues)[] = ['nombre', 'negocio', 'instagram', 'facturacion', 'cuandoLanzar']
+    const firstField = order.find(f => errs[f])
+    if (firstField && FIELD_LABELS[firstField]) {
+      showFieldToast(FIELD_LABELS[firstField]!)
+    }
     setTimeout(() => {
-      const first = document.querySelector('[data-field-error]')
-      first?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      document.querySelector('[data-field-error]')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }, 50)
   }
 

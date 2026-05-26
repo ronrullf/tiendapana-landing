@@ -5,6 +5,7 @@ import { Plus, X, ShoppingCart, Trash2, Minus } from 'lucide-react'
 import { useDollarRate } from '@/hooks/useDollarRate'
 import { isValidVzlaPhone } from '@/lib/normalizeVzlaPhone'
 import { normalizeVzlaPhone } from '@/lib/normalizeVzlaPhone'
+import { showFieldToast } from '@/lib/fieldToast'
 import { ProductForm } from '@/components/demo/ProductForm'
 import type { Product } from '@/components/demo/ProductCard'
 
@@ -519,7 +520,6 @@ export default function DemoPage() {
 
   // Setup state
   const [phone,    setPhone]    = useState('')
-  const [phoneErr, setPhoneErr] = useState('')
   const [payments, setPayments] = useState<string[]>(['pago-movil'])
   const [products, setProducts] = useState<Product[]>([])
   const [forms,    setForms]    = useState<number[]>([0])
@@ -551,15 +551,18 @@ export default function DemoPage() {
   }
 
   const handleLaunch = () => {
+    if (!phone.trim()) {
+      showFieldToast('tu número de WhatsApp')
+      return
+    }
     if (!isValidVzlaPhone(phone)) {
-      setPhoneErr('Número venezolano inválido. Ej: 0414-1234567')
+      showFieldToast('un número venezolano válido (ej: 0414-1234567)')
       return
     }
     if (products.length === 0) {
-      setPhoneErr('Agrega al menos 1 producto primero')
+      showFieldToast('al menos un producto')
       return
     }
-    setPhoneErr('')
     setStep('store')
   }
 
@@ -649,12 +652,11 @@ export default function DemoPage() {
               inputMode="numeric"
               placeholder="0414-1234567 o 04241234567"
               value={phone}
-              onChange={e => { setPhone(e.target.value); setPhoneErr('') }}
-              style={inputStyle(!!phoneErr)}
-              onFocus={e  => { e.target.style.borderColor = '#FF6B00'; e.target.style.boxShadow = '0 0 0 3px rgba(255,107,0,0.12)' }}
-              onBlur={e   => { e.target.style.borderColor = phoneErr ? '#DC2626' : '#E5E7EB'; e.target.style.boxShadow = 'none' }}
+              onChange={e => setPhone(e.target.value)}
+              style={inputStyle(false)}
+              onFocus={e => { e.target.style.borderColor = '#FF6B00'; e.target.style.boxShadow = '0 0 0 3px rgba(255,107,0,0.12)' }}
+              onBlur={e  => { e.target.style.borderColor = '#E5E7EB'; e.target.style.boxShadow = 'none' }}
             />
-            {phoneErr && <p className="text-xs text-red-500">{phoneErr}</p>}
             <p className="text-xs text-[#94A3B8]">Acepta 0414, 0416, 0424, 0426, 0412 — con o sin guiones</p>
           </motion.div>
 
