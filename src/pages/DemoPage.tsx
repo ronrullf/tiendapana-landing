@@ -826,7 +826,7 @@ export default function DemoPage() {
           className="bg-[#FEF3E2] border border-[#FF6B00]/20 rounded-2xl px-4 py-3 text-center"
         >
           <p className="text-xs text-[#FF6B00] font-semibold">
-            👀 Esta es tu demo — así se verá tu tienda profesional con Tienda Pana
+            👀 Esta es tu demo — así se verá tu tienda profesional con Tienda Pana pero con un diseño personalizado.
           </p>
         </motion.div>
 

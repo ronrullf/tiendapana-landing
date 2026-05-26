@@ -91,7 +91,6 @@ export function ProductForm({ index, onAdd, onRemove, canRemove }: Props) {
         ref={fileRef}
         type="file"
         accept="image/*"
-        capture="environment"
         className="hidden"
         onChange={handleImage}
       />
