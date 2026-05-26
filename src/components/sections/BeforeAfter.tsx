@@ -4,8 +4,19 @@ import { beforeItems, afterItems } from '@/data/beforeAfter'
 
 export function BeforeAfter() {
   return (
-    <section className="py-20 md:py-28 bg-surface">
-      <div className="max-w-6xl mx-auto px-5 md:px-8 lg:px-12">
+    <section className="relative py-20 md:py-28 bg-surface overflow-hidden">
+      {/* Background animation */}
+      <div
+        className="absolute right-1/4 bottom-0 w-[700px] h-[400px] pointer-events-none"
+        style={{
+          background: 'radial-gradient(ellipse at bottom right, oklch(78% 0.14 40 / 0.09) 0%, transparent 65%)',
+          animation: 'glow-pulse 10s ease-in-out infinite',
+          animationDelay: '4s',
+        }}
+        aria-hidden="true"
+      />
+
+      <div className="max-w-6xl mx-auto px-5 md:px-8 lg:px-12 relative z-10">
 
         {/* Header */}
         <motion.div
@@ -26,26 +37,31 @@ export function BeforeAfter() {
 
           {/* Before */}
           <motion.div
-            className="rounded-2xl border border-border bg-surface overflow-hidden"
-            initial={{ opacity: 0, x: -20 }}
+            className="rounded-2xl border border-border bg-white overflow-hidden"
+            initial={{ opacity: 0, x: -24 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="px-6 py-5 border-b border-border">
+            <div className="px-6 py-5 border-b border-border flex items-center gap-3">
+              <div className="w-2.5 h-2.5 rounded-full bg-red-300" />
               <span className="font-display font-black text-2xl text-muted">Hoy</span>
             </div>
             <div className="flex flex-col">
-              {beforeItems.map((item: string, i: number) => (
-                <div
+              {(beforeItems as string[]).map((item, i) => (
+                <motion.div
                   key={i}
                   className="flex items-center gap-4 px-6 py-4 border-b border-border last:border-0"
+                  initial={{ opacity: 0, x: -10 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.35, delay: 0.1 + i * 0.06 }}
                 >
-                  <div className="w-6 h-6 rounded-full bg-red-50 flex items-center justify-center shrink-0">
-                    <X size={13} className="text-red-400" />
+                  <div className="w-5 h-5 rounded-full bg-red-50 border border-red-100 flex items-center justify-center shrink-0">
+                    <X size={11} className="text-red-400" />
                   </div>
                   <span className="text-sm text-muted">{item}</span>
-                </div>
+                </motion.div>
               ))}
             </div>
           </motion.div>
@@ -53,25 +69,30 @@ export function BeforeAfter() {
           {/* After */}
           <motion.div
             className="rounded-2xl border border-brand-200 bg-brand-50 overflow-hidden"
-            initial={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, x: 24 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="px-6 py-5 border-b border-brand-200">
+            <div className="px-6 py-5 border-b border-brand-200 flex items-center gap-3">
+              <div className="w-2.5 h-2.5 rounded-full bg-brand-500" />
               <span className="font-display font-black text-2xl text-ink">Con Tienda Pana</span>
             </div>
             <div className="flex flex-col">
-              {afterItems.map((item: string, i: number) => (
-                <div
+              {(afterItems as string[]).map((item, i) => (
+                <motion.div
                   key={i}
                   className="flex items-center gap-4 px-6 py-4 border-b border-brand-100 last:border-0"
+                  initial={{ opacity: 0, x: 10 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.35, delay: 0.15 + i * 0.06 }}
                 >
-                  <div className="w-6 h-6 rounded-full bg-brand-500 flex items-center justify-center shrink-0">
-                    <Check size={13} className="text-white" />
+                  <div className="w-5 h-5 rounded-full bg-brand-500 flex items-center justify-center shrink-0">
+                    <Check size={11} className="text-white" />
                   </div>
                   <span className="text-sm font-medium text-ink">{item}</span>
-                </div>
+                </motion.div>
               ))}
             </div>
           </motion.div>

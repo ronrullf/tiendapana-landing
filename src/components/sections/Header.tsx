@@ -33,7 +33,7 @@ export function Header() {
         </a>
 
         {/* CTA */}
-        <OrangeGlowButton size="sm" whatsapp onClick={() => navigate('/pide-tu-demo')}>
+        <OrangeGlowButton size="sm" whatsapp onClick={() => navigate('/demo')}>
           Quiero mi demo
         </OrangeGlowButton>
       </div>

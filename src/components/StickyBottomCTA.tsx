@@ -26,7 +26,7 @@ export function StickyBottomCTA() {
           transition={{ duration: 0.25 }}
           className="fixed bottom-0 left-0 right-0 z-40 md:hidden p-4 bg-white border-t border-border shadow-lg"
         >
-          <OrangeGlowButton fullWidth size="lg" whatsapp onClick={() => navigate('/pide-tu-demo')}>
+          <OrangeGlowButton fullWidth size="lg" whatsapp onClick={() => navigate('/demo')}>
             Quiero mi demo →
           </OrangeGlowButton>
         </motion.div>

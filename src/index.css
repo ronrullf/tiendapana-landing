@@ -106,3 +106,28 @@
   opacity: 0.4;
   mix-blend-mode: multiply;
 }
+
+/* ─── Aurora sweep (for section accents) ────────────────────── */
+@keyframes aurora-sweep {
+  0%   { transform: translateX(-20%) skewX(-8deg); opacity: 0.04; }
+  50%  { transform: translateX(20%)  skewX(8deg);  opacity: 0.09; }
+  100% { transform: translateX(-20%) skewX(-8deg); opacity: 0.04; }
+}
+
+/* ─── Shimmer on trust bar ───────────────────────────────────── */
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ─── Scroll indicator bounce ───────────────────────────────── */
+@keyframes bounce-down {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(6px); }
+}
+
+/* ─── Floating badge pulse ───────────────────────────────────── */
+@keyframes badge-float {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50%       { transform: translateY(-6px) rotate(1deg); }
+}

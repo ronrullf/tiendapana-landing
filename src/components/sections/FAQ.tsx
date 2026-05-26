@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { faqs } from '@/data/faq'
+import { useNavigate } from 'react-router-dom'
+import { OrangeGlowButton } from '@/components/OrangeGlowButton'
 
 interface FaqItem {
   q: string
@@ -10,10 +12,22 @@ interface FaqItem {
 
 export function FAQ() {
   const [openIndex, setOpenIndex] = useState<number>(0)
+  const navigate = useNavigate()
 
   return (
-    <section className="py-20 md:py-28 bg-bg">
-      <div className="max-w-3xl mx-auto px-5 md:px-8 lg:px-12">
+    <section className="relative py-20 md:py-28 bg-bg overflow-hidden">
+      {/* Background orb */}
+      <div
+        className="absolute left-0 top-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle, oklch(78% 0.14 40 / 0.06) 0%, transparent 70%)',
+          animation: 'glow-pulse 11s ease-in-out infinite',
+          animationDelay: '3s',
+        }}
+        aria-hidden="true"
+      />
+
+      <div className="max-w-3xl mx-auto px-5 md:px-8 lg:px-12 relative z-10">
 
         {/* Header */}
         <motion.div
@@ -29,7 +43,13 @@ export function FAQ() {
         </motion.div>
 
         {/* Accordion */}
-        <div className="flex flex-col divide-y divide-border border border-border rounded-2xl overflow-hidden">
+        <motion.div
+          className="flex flex-col divide-y divide-border border border-border rounded-2xl overflow-hidden bg-white"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5 }}
+        >
           {(faqs as FaqItem[]).map((faq, i) => (
             <div key={i}>
               <button
@@ -55,15 +75,31 @@ export function FAQ() {
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
                     transition={{ duration: 0.25 }}
-                    className="overflow-hidden"
+                    className="overflow-hidden bg-surface"
                   >
-                    <p className="px-6 pb-5 text-sm text-muted leading-relaxed">{faq.a}</p>
+                    <p className="px-6 pb-5 pt-1 text-sm text-muted leading-relaxed">{faq.a}</p>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
           ))}
-        </div>
+        </motion.div>
+
+        {/* Post-FAQ conversion nudge */}
+        <motion.div
+          className="mt-12 text-center flex flex-col items-center gap-4"
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
+          <p className="text-base text-muted">
+            ¿Quedó alguna duda? Escríbenos y la resolvemos por WhatsApp antes de la demo.
+          </p>
+          <OrangeGlowButton size="md" whatsapp onClick={() => navigate('/demo')}>
+            Quiero mi demo gratis →
+          </OrangeGlowButton>
+        </motion.div>
       </div>
     </section>
   )

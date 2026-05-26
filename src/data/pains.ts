@@ -1,7 +1,7 @@
 export const pains = [
   {
     emoji: "💬",
-    titulo: '"¿Cuánto cuesta?" × 50 al día',
+    titulo: 'Vende más esforzándote menos.',
     texto: "Subes una foto al feed, le caen 80 likes, y la mitad te pregunta lo mismo por DM. Respondes uno por uno, calculas la tasa, buscas la foto... y la mitad ni te contesta.",
   },
   {

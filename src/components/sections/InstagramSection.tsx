@@ -110,7 +110,7 @@ export function InstagramSection() {
             <p className="text-lg md:text-xl font-bold text-ink mb-6">
               Eso es vender inteligente. Y eso es exactamente lo que hace Tienda Pana.
             </p>
-            <OrangeGlowButton size="lg" whatsapp onClick={() => navigate('/pide-tu-demo')}>
+            <OrangeGlowButton size="lg" whatsapp onClick={() => navigate('/demo')}>
               Quiero mi demo →
             </OrangeGlowButton>
           </motion.div>

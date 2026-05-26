@@ -35,8 +35,28 @@ function AnimatedStat({ num, suffix, label }: { num: number; suffix: string; lab
 
 export function Authority() {
   return (
-    <section className="py-20 md:py-28 bg-surface">
-      <div className="max-w-6xl mx-auto px-5 md:px-8 lg:px-12">
+    <section className="relative py-20 md:py-28 bg-surface overflow-hidden">
+      {/* Animated background orb */}
+      <div
+        className="absolute -right-20 top-0 w-[600px] h-[600px] rounded-full pointer-events-none"
+        style={{
+          background: 'radial-gradient(circle, oklch(78% 0.14 40 / 0.07) 0%, transparent 68%)',
+          animation: 'glow-pulse 13s ease-in-out infinite',
+          animationDelay: '5s',
+        }}
+        aria-hidden="true"
+      />
+      {/* Subtle dot pattern */}
+      <svg className="absolute inset-0 w-full h-full opacity-[0.03] pointer-events-none" aria-hidden="true">
+        <defs>
+          <pattern id="auth-dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.8" fill="oklch(65% 0.18 40)" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#auth-dots)" />
+      </svg>
+
+      <div className="max-w-6xl mx-auto px-5 md:px-8 lg:px-12 relative z-10">
         <div className="flex flex-col md:flex-row items-center gap-12 md:gap-16">
 
           {/* Mascot */}
