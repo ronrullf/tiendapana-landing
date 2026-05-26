@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Plus, X, ImageIcon } from 'lucide-react'
+import { Plus, X, ImageIcon, Camera, FolderOpen } from 'lucide-react'
 import type { Product } from './ProductCard'
 
 interface Props {
@@ -15,13 +15,16 @@ export function ProductForm({ index, onAdd, onRemove, canRemove }: Props) {
   const [imageUrl, setImageUrl] = useState('')
   const [added, setAdded]       = useState(false)
   const [error, setError]       = useState('')
-  const fileRef = useRef<HTMLInputElement>(null)
+  const galleryRef = useRef<HTMLInputElement>(null)
+  const cameraRef  = useRef<HTMLInputElement>(null)
 
   const handleImage = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
     const url = URL.createObjectURL(file)
     setImageUrl(url)
+    // reset so same file can be re-selected
+    e.target.value = ''
   }
 
   const handleAdd = () => {
@@ -71,26 +74,61 @@ export function ProductForm({ index, onAdd, onRemove, canRemove }: Props) {
       </div>
 
       {/* Image upload */}
-      <button
-        type="button"
-        onClick={() => fileRef.current?.click()}
-        className="w-full aspect-[4/3] rounded-xl border-2 border-dashed border-[#F0E8E0] flex flex-col items-center justify-center gap-2 transition-colors overflow-hidden"
-        style={{ background: imageUrl ? 'transparent' : '#FEF3E2' }}
-      >
-        {imageUrl ? (
+      {imageUrl ? (
+        <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden border border-[#F0E8E0]">
           <img src={imageUrl} alt="preview" className="w-full h-full object-cover" />
-        ) : (
-          <>
-            <ImageIcon size={28} className="text-[#FF6B00] opacity-60" />
-            <span className="text-sm text-[#737373]">Toca para subir foto</span>
-            <span className="text-xs text-[#AAAAAA]">desde tu galería o cámara</span>
-          </>
-        )}
-      </button>
+          <button
+            type="button"
+            onClick={() => galleryRef.current?.click()}
+            className="absolute bottom-2 right-2 bg-white/90 backdrop-blur-sm text-xs font-semibold text-[#0A0A0A] px-3 py-1.5 rounded-full shadow-sm active:scale-95 transition-transform"
+          >
+            Cambiar foto
+          </button>
+        </div>
+      ) : (
+        <div
+          className="w-full aspect-[4/3] rounded-xl border-2 border-dashed border-[#F0E8E0] flex flex-col items-center justify-center gap-3 p-4"
+          style={{ background: '#FEF3E2' }}
+        >
+          <ImageIcon size={28} className="text-[#FF6B00] opacity-50" />
+          <span className="text-sm font-semibold text-[#737373]">Foto del producto</span>
+          <div className="flex gap-2 w-full max-w-[260px]">
+            <button
+              type="button"
+              onClick={() => galleryRef.current?.click()}
+              className="flex-1 h-11 rounded-xl border border-[#FF6B00] text-[#FF6B00] font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+              style={{ background: '#fff' }}
+            >
+              <FolderOpen size={15} />
+              Mis archivos
+            </button>
+            <button
+              type="button"
+              onClick={() => cameraRef.current?.click()}
+              className="flex-1 h-11 rounded-xl text-white font-semibold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+              style={{ background: 'linear-gradient(135deg, #FF7A33 0%, #FF6B00 100%)' }}
+            >
+              <Camera size={15} />
+              Cámara
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Input desde galería/archivos — sin capture */}
       <input
-        ref={fileRef}
+        ref={galleryRef}
+        type="file"
+        accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif"
+        className="hidden"
+        onChange={handleImage}
+      />
+      {/* Input desde cámara — con capture */}
+      <input
+        ref={cameraRef}
         type="file"
         accept="image/*"
+        capture="environment"
         className="hidden"
         onChange={handleImage}
       />
