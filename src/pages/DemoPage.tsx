@@ -7,6 +7,11 @@ import {
 import { useDollarRate } from '@/hooks/useDollarRate'
 import { isValidVzlaPhone, normalizeVzlaPhone } from '@/lib/normalizeVzlaPhone'
 import {
+  trackProductoVisto, trackPedirWhatsApp, trackAgregarCarrito,
+  trackAbreCarrito, trackCuponAplicado, trackMetodoPago,
+  trackIniciaCheckout, trackPedidoEnviado, trackDemoConvierte,
+} from '@/lib/analytics'
+import {
   DEMO_PRODUCTS, DEMO_COUPON, PER_PRODUCT_DISCOUNT, MAX_QTY_DISCOUNT,
   PAYMENT_METHODS, type DemoProduct,
 } from '@/data/demoProducts'
@@ -170,7 +175,7 @@ function PaymentMethods({ payment, setPayment }: { payment: string; setPayment: 
         {PAYMENT_METHODS.map(m => {
           const active = payment === m.id
           return (
-            <button key={m.id} type="button" onClick={() => setPayment(m.id)}
+            <button key={m.id} type="button" onClick={() => { setPayment(m.id); trackMetodoPago(m.label) }}
               className="flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium transition-all active:scale-[0.98] text-left"
               style={{
                 background:  active ? '#FEF3E2' : '#fff',
@@ -698,9 +703,10 @@ export default function DemoPage() {
   const [introOpen, setIntroOpen] = useState(true)
 
   const cartCount = cartItems.reduce((a, i) => a + i.quantity, 0)
-  const goToRequest = () => navigate(DEMO_REQUEST_PATH)
+  const goToRequest = () => { trackDemoConvierte(); navigate(DEMO_REQUEST_PATH) }
 
   const addToCart = (p: DemoProduct) => {
+    trackAgregarCarrito(p.name)
     setCartItems(prev => {
       const ex = prev.find(i => i.product.id === p.id)
       if (ex) return prev.map(i => i.product.id === p.id ? { ...i, quantity: i.quantity + 1 } : i)
@@ -715,8 +721,12 @@ export default function DemoPage() {
   const clearCart = () => setCartItems([])
 
   const applyCoupon = () => {
-    if (couponInput.trim().toUpperCase() === DEMO_COUPON.code) { setCoupon(true); setCouponError('') }
-    else setCouponError('Ese cupón no existe. Prueba con PANA 😉')
+    if (couponInput.trim().toUpperCase() === DEMO_COUPON.code) {
+      setCoupon(true); setCouponError('')
+      trackCuponAplicado(DEMO_COUPON.code)
+    } else {
+      setCouponError('Ese cupón no existe. Prueba con PANA 😉')
+    }
   }
 
   // Confirmar pedido → abre WhatsApp con mensaje
@@ -743,7 +753,10 @@ export default function DemoPage() {
       msg = `Hola, quiero hacer este pedido 🛒\n\n${lines}\n\nSubtotal: ${fmtUSD(calc.subtotal)}${descBlock}\n\nTotal: ${fmtUSD(calc.total)} (${fmtBS(calc.total, rate)})\nVoy a pagar con ${paymentLabel(payment)}\n\n¿Me pasan los datos para pagar?`
     }
 
-    if (msg) window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, '_blank')
+    if (msg) {
+      trackPedidoEnviado(pendingOrder!.type === 'single' ? 'producto' : 'carrito', payment)
+      window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, '_blank')
+    }
     setPendingOrder(null)
   }
 
@@ -795,7 +808,7 @@ export default function DemoPage() {
               style={{ background: '#25D366' }}>
               <WhatsAppIcon size={15} /> Quiero mi tienda
             </button>
-            <button type="button" onClick={() => setCartOpen(true)} aria-label="Ver carrito"
+            <button type="button" onClick={() => { trackAbreCarrito(); setCartOpen(true) }} aria-label="Ver carrito"
               className="relative flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-[#E5E7EB] text-sm font-semibold text-[#0A0A0A] hover:border-[#FF6B00] hover:text-[#FF6B00] transition-colors active:scale-95">
               <ShoppingCart size={16} />
               {cartCount > 0 && (
@@ -845,8 +858,8 @@ export default function DemoPage() {
               <ProductCard
                 product={product}
                 rate={rate}
-                onOpen={() => setActiveProduct(product)}
-                onOrder={() => setPendingOrder({ type: 'single', product })}
+                onOpen={() => { trackProductoVisto(product.name, product.categoria); setActiveProduct(product) }}
+                onOrder={() => { trackPedirWhatsApp(product.name, 'tarjeta'); trackIniciaCheckout('producto'); setPendingOrder({ type: 'single', product }) }}
               />
             </motion.div>
           ))}
@@ -897,7 +910,7 @@ export default function DemoPage() {
             setPayment={setPayment}
             onClose={() => setActiveProduct(null)}
             onAddToCart={() => { addToCart(activeProduct); setActiveProduct(null); setCartOpen(true) }}
-            onOrder={() => { const p = activeProduct; setActiveProduct(null); setPendingOrder({ type: 'single', product: p }) }}
+            onOrder={() => { const p = activeProduct; trackPedirWhatsApp(p.name, 'detalle'); trackIniciaCheckout('producto'); setActiveProduct(null); setPendingOrder({ type: 'single', product: p }) }}
             coupon={coupon}
             couponInput={couponInput}
             setCouponInput={setCouponInput}
@@ -926,7 +939,7 @@ export default function DemoPage() {
             applyCoupon={applyCoupon}
             payment={payment}
             setPayment={setPayment}
-            onCheckout={() => { setCartOpen(false); setPendingOrder({ type: 'cart' }) }}
+            onCheckout={() => { trackIniciaCheckout('carrito'); setCartOpen(false); setPendingOrder({ type: 'cart' }) }}
           />
         )}
       </AnimatePresence>

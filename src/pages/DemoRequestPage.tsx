@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { trackFormularioDemoEnviado } from '@/lib/analytics'
 import { showFieldToast } from '@/lib/fieldToast'
 import { WhatsAppPreview } from '@/components/demo-request/WhatsAppPreview'
 import { SuccessScreen } from '@/components/demo-request/SuccessScreen'
@@ -170,6 +171,7 @@ export default function DemoRequestPage() {
     setWaUrl(url)
 
     setTimeout(() => {
+      trackFormularioDemoEnviado()
       window.open(url, '_blank')
       setLoading(false)
       setSubmitted(true)
