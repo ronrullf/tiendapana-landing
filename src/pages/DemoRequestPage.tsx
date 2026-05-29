@@ -228,7 +228,7 @@ export default function DemoRequestPage() {
               {/* Page headline */}
               <div className="mb-8">
                 <h1 className="font-display font-black text-[26px] md:text-4xl text-[#0F172A] leading-tight mb-2">
-                  Pídeme mi demo gratis
+                  Quiero mi tienda online
                 </h1>
                 <p className="text-base text-[#64748B]">
                   Llena el form rápido, te respondemos por WhatsApp en minutos. Cero compromiso.

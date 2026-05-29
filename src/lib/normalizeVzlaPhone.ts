@@ -19,5 +19,6 @@ export function normalizeVzlaPhone(raw: string): string {
 
 export function isValidVzlaPhone(raw: string): boolean {
   const normalized = normalizeVzlaPhone(raw)
-  return /^584(12|14|16|24|26)\d{7}$/.test(normalized)
+  // Prefijos aceptados: 0414, 0416, 0422, 0424, 0426
+  return /^584(14|16|22|24|26)\d{7}$/.test(normalized)
 }

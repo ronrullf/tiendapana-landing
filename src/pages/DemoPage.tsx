@@ -1,185 +1,348 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { Plus, X, ShoppingCart, Trash2, Minus } from 'lucide-react'
+import {
+  ShoppingCart, X, Plus, Minus, Trash2, Tag, Check, Sparkles,
+} from 'lucide-react'
 import { useDollarRate } from '@/hooks/useDollarRate'
-import { isValidVzlaPhone } from '@/lib/normalizeVzlaPhone'
-import { normalizeVzlaPhone } from '@/lib/normalizeVzlaPhone'
-import { showFieldToast } from '@/lib/fieldToast'
-import { ProductForm } from '@/components/demo/ProductForm'
-import type { Product } from '@/components/demo/ProductCard'
+import { isValidVzlaPhone, normalizeVzlaPhone } from '@/lib/normalizeVzlaPhone'
+import {
+  DEMO_PRODUCTS, DEMO_COUPON, PER_PRODUCT_DISCOUNT, MAX_QTY_DISCOUNT,
+  PAYMENT_METHODS, type DemoProduct,
+} from '@/data/demoProducts'
 
-type Step = 'setup' | 'store'
+const DEMO_REQUEST_PATH = '/pide-tu-demo'
 
 interface CartItem {
-  product: Product
+  product: DemoProduct
   quantity: number
-  paymentMethod: string
 }
 
-const PAYMENT_OPTS = [
-  { id: 'pago-movil',    label: 'Pago Móvil',            icon: '📱' },
-  { id: 'binance',       label: 'Binance',                icon: '🟡' },
-  { id: 'transferencia', label: 'Transferencia bancaria', icon: '🏦' },
-  { id: 'paypal',        label: 'PayPal',                 icon: '🅿️' },
-  { id: 'zelle',         label: 'Zelle',                  icon: '💙' },
-]
+type PendingOrder =
+  | { type: 'single'; product: DemoProduct }
+  | { type: 'cart' }
+  | null
 
-const PAYMENT_LABELS: Record<string, string> = {
-  'pago-movil':    'Pago Móvil',
-  'binance':       'Binance',
-  'transferencia': 'Transferencia bancaria',
-  'paypal':        'PayPal',
-  'zelle':         'Zelle',
+// ── helpers de formato ───────────────────────────────────────────────────────
+const fmtUSD = (n: number) =>
+  `$${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+const fmtBS = (usd: number, rate: number | null) =>
+  rate
+    ? `Bs. ${(usd * rate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : 'Bs. —'
+
+const paymentLabel = (id: string) => PAYMENT_METHODS.find(p => p.id === id)?.label ?? id
+const paymentDiscount = (id: string) => PAYMENT_METHODS.find(p => p.id === id)?.discount ?? 0
+
+// ── lógica de precios ──────────────────────────────────────────────────────────
+function priceSingle(product: DemoProduct, paymentId: string, couponApplied: boolean) {
+  const base = product.priceUSD
+  const couponPct = couponApplied ? DEMO_COUPON.percent : 0
+  const payPct = paymentDiscount(paymentId)
+  const afterDisc = base * (1 - couponPct / 100) * (1 - payPct / 100)
+  return { base, couponPct, payPct, afterDisc, total: afterDisc, saved: base - afterDisc }
 }
 
-function inputStyle(err = false) {
-  return {
-    width: '100%',
-    height: '52px',
-    padding: '0 16px',
-    borderRadius: '12px',
-    border: `1px solid ${err ? '#DC2626' : '#E5E7EB'}`,
-    fontSize: '16px',
-    color: '#0A0A0A',
-    background: '#fff',
-    outline: 'none',
-  } as const
+function priceCart(items: CartItem[], couponApplied: boolean, paymentId: string) {
+  const subtotal = items.reduce((a, i) => a + i.product.priceUSD * i.quantity, 0)
+  const distinct = items.length
+  const qtyPct = Math.min(distinct * PER_PRODUCT_DISCOUNT, MAX_QTY_DISCOUNT)
+  const couponPct = couponApplied ? DEMO_COUPON.percent : 0
+  const payPct = paymentDiscount(paymentId)
+  const afterDisc = subtotal * (1 - qtyPct / 100) * (1 - couponPct / 100) * (1 - payPct / 100)
+  return { subtotal, distinct, qtyPct, couponPct, payPct, afterDisc, total: afterDisc, saved: subtotal - afterDisc }
 }
 
-// ── PRODUCT MODAL ────────────────────────────────────────────────────────────
-function ProductModal({
-  product,
-  bsRate,
-  payments,
-  onClose,
-  onAddToCart,
+// ── ícono WhatsApp ───────────────────────────────────────────────────────────
+function WhatsAppIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+    </svg>
+  )
+}
+
+// ── CTA verde "Quiero mi tienda online" ────────────────────────────────────────
+function GreenCTA({
+  onClick, label = 'Quiero mi tienda online', size = 'lg', full = true,
 }: {
-  product: Product
-  bsRate: number | null
-  payments: string[]
-  onClose: () => void
-  onAddToCart: (product: Product, payment: string) => void
+  onClick: () => void
+  label?: string
+  size?: 'sm' | 'lg'
+  full?: boolean
 }) {
-  const [selectedPayment, setSelectedPayment] = useState(payments[0])
-  const priceBS = bsRate
-    ? (product.priceUSD * bsRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : null
+  const isSm = size === 'sm'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${full ? 'w-full' : ''} min-w-0 ${isSm ? 'h-10 px-3 text-sm' : 'h-14 px-4 sm:px-6 text-[15px] sm:text-base'} rounded-2xl font-black text-white flex items-center justify-center gap-2 whitespace-nowrap transition-all active:scale-[0.97]`}
+      style={{ background: '#25D366', boxShadow: '0 4px 20px rgba(37,211,102,0.30)' }}
+    >
+      <WhatsAppIcon size={isSm ? 16 : 20} />
+      <span className="truncate">{label}</span>
+    </button>
+  )
+}
 
-  const handleOrder = () => {
-    // direct WhatsApp — modal version
-    onClose()
-  }
+// ── Banner "¿Te gusta cómo se ve?" (con logo) ──────────────────────────────────
+function LikeItBanner({ onClick }: { onClick: () => void }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-40px' }}
+      transition={{ duration: 0.4 }}
+      className="bg-white rounded-3xl border border-[#F0E8E0] p-6 flex flex-col items-center gap-4 text-center"
+      style={{ boxShadow: '0 4px 24px rgba(255,107,0,0.08)' }}
+    >
+      <img src="/logo.png" alt="Tienda Pana" className="w-16 h-16 object-contain"
+        style={{ filter: 'drop-shadow(0 6px 16px rgba(255,107,0,0.20))' }} />
+      <div>
+        <p className="font-display font-black text-xl text-[#0A0A0A]">¿Te gusta cómo se ve?</p>
+        <p className="text-sm text-[#737373] mt-1 max-w-md mx-auto">
+          Esta es una tienda <strong className="text-[#FF6B00]">demo</strong>. La tuya viene con tu dominio .com,
+          tasa BCV automática, panel admin y tus productos reales.
+        </p>
+      </div>
+      <GreenCTA onClick={onClick} />
+      <p className="text-xs text-[#94A3B8]">Te respondemos por WhatsApp en minutos · Sin compromiso</p>
+    </motion.div>
+  )
+}
+
+// ── Campo de cupón reutilizable ────────────────────────────────────────────────
+function CouponField({
+  coupon, couponInput, setCouponInput, couponError, applyCoupon,
+}: {
+  coupon: boolean
+  couponInput: string
+  setCouponInput: (v: string) => void
+  couponError: string
+  applyCoupon: () => void
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-bold uppercase tracking-widest text-[#737373]">Cupón de descuento</p>
+      {coupon ? (
+        <div className="flex items-center gap-2 bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl px-3 py-2.5">
+          <Check size={16} className="text-[#16A34A] shrink-0" />
+          <span className="text-sm font-semibold text-[#16A34A]">
+            Cupón {DEMO_COUPON.code} aplicado · -{DEMO_COUPON.percent}%
+          </span>
+        </div>
+      ) : (
+        <>
+          <div className="flex gap-2">
+            <div className="flex-1 min-w-0 flex items-center gap-2 border border-[#E5E7EB] rounded-xl px-3 bg-white">
+              <Tag size={15} className="text-[#94A3B8] shrink-0" />
+              <input
+                value={couponInput}
+                onChange={e => setCouponInput(e.target.value.toUpperCase())}
+                placeholder="Escribe tu cupón"
+                className="flex-1 min-w-0 h-11 bg-transparent outline-none text-base text-[#0A0A0A]"
+                style={{ fontSize: '16px' }}
+              />
+            </div>
+            <button onClick={applyCoupon}
+              className="px-4 h-11 rounded-xl font-bold text-sm text-white active:scale-95 shrink-0"
+              style={{ background: '#FF6B00' }}>
+              Aplicar
+            </button>
+          </div>
+          <p className="text-xs font-semibold text-[#FF6B00]">
+            Prueba el código <strong>PANA</strong> para un {DEMO_COUPON.percent}% de descuento.
+          </p>
+          {couponError && <p className="text-xs text-red-500">{couponError}</p>}
+        </>
+      )}
+    </div>
+  )
+}
+
+// ── Selector de método de pago reutilizable ────────────────────────────────────
+function PaymentMethods({ payment, setPayment }: { payment: string; setPayment: (id: string) => void }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-bold uppercase tracking-widest text-[#737373]">Método de pago</p>
+      <div className="flex flex-col gap-2">
+        {PAYMENT_METHODS.map(m => {
+          const active = payment === m.id
+          return (
+            <button key={m.id} type="button" onClick={() => setPayment(m.id)}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium transition-all active:scale-[0.98] text-left"
+              style={{
+                background:  active ? '#FEF3E2' : '#fff',
+                borderColor: active ? '#FF6B00' : '#E5E7EB',
+                color:       active ? '#0A0A0A' : '#737373',
+                boxShadow:   active ? '0 0 0 2px #FF6B00' : 'none',
+              }}>
+              <span className="text-lg shrink-0">{m.icon}</span>
+              <span className="flex-1 min-w-0">
+                {m.label}
+                {m.note && <span className="block text-[11px] font-semibold text-[#16A34A] mt-0.5">{m.note}</span>}
+              </span>
+              {active && <Check size={15} className="text-[#FF6B00] shrink-0" />}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Tarjeta de producto ────────────────────────────────────────────────────────
+function ProductCard({
+  product, rate, onOpen, onOrder,
+}: {
+  product: DemoProduct
+  rate: number | null
+  onOpen: () => void
+  onOrder: () => void
+}) {
+  return (
+    <div
+      className="bg-white rounded-3xl overflow-hidden border border-[#F0E8E0] flex flex-col"
+      style={{ boxShadow: '0 4px 24px rgba(255,107,0,0.07)' }}
+    >
+      <button type="button" onClick={onOpen}
+        className="relative aspect-square bg-white overflow-hidden w-full group" aria-label={`Ver ${product.name}`}>
+        <img src={product.imageUrl} alt={product.name} loading="lazy"
+          className="w-full h-full object-contain p-3 group-active:scale-95 transition-transform" />
+        <span className="absolute top-3 left-3 text-[10px] font-bold uppercase tracking-wider bg-[#FEF3E2] text-[#FF6B00] px-2.5 py-1 rounded-full">
+          {product.categoria}
+        </span>
+      </button>
+
+      <div className="p-4 flex flex-col gap-2 flex-1">
+        <button type="button" onClick={onOpen} className="text-left">
+          <h3 className="font-display font-black text-base text-[#0A0A0A] leading-tight hover:text-[#FF6B00] transition-colors">
+            {product.name}
+          </h3>
+        </button>
+        <p className="text-xs text-[#737373] leading-snug line-clamp-2 flex-1">{product.descripcion}</p>
+
+        {/* Precios — USD grande naranja, Bs. grande y NEGRO */}
+        <div className="flex flex-col gap-0.5 mt-1 min-w-0">
+          <span className="text-lg xs:text-xl sm:text-2xl font-black text-[#FF6B00] leading-none truncate">{fmtUSD(product.priceUSD)}</span>
+          <span className="text-sm xs:text-base sm:text-lg font-black text-[#0A0A0A] truncate">{fmtBS(product.priceUSD, rate)}</span>
+        </div>
+
+        <button
+          type="button"
+          onClick={onOrder}
+          className="mt-2 w-full h-11 px-2 rounded-xl font-bold text-[13px] sm:text-sm text-white flex items-center justify-center gap-1.5 whitespace-nowrap transition-all active:scale-[0.97]"
+          style={{ background: '#25D366', boxShadow: '0 3px 12px rgba(37,211,102,0.25)' }}
+        >
+          <WhatsAppIcon size={15} />
+          <span className="hidden xs:inline">Pedir por WhatsApp</span>
+          <span className="xs:hidden">Pedir</span>
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Modal de detalle del producto ──────────────────────────────────────────────
+function ProductDetailModal({
+  product, rate, payment, setPayment, onClose, onAddToCart, onOrder,
+  coupon, couponInput, setCouponInput, couponError, applyCoupon,
+}: {
+  product: DemoProduct
+  rate: number | null
+  payment: string
+  setPayment: (id: string) => void
+  onClose: () => void
+  onAddToCart: () => void
+  onOrder: () => void
+  coupon: boolean
+  couponInput: string
+  setCouponInput: (v: string) => void
+  couponError: string
+  applyCoupon: () => void
+}) {
+  const { base, couponPct, payPct, total, saved } = priceSingle(product, payment, coupon)
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     >
-      {/* Backdrop */}
-      <motion.div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      />
+      <motion.div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
 
-      {/* Modal card */}
       <motion.div
-        className="relative w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl overflow-hidden z-10"
-        initial={{ y: '100%', opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        exit={{ y: '100%', opacity: 0 }}
+        className="relative w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl z-10 flex flex-col"
+        style={{ maxHeight: '92dvh' }}
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
-        style={{ maxHeight: '92dvh', overflowY: 'auto' }}
       >
-        {/* Drag handle (mobile) */}
-        <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm px-5 pt-3 pb-2 flex items-center justify-between">
-          <div className="w-10 h-1 bg-[#E5E7EB] rounded-full mx-auto absolute left-1/2 -translate-x-1/2 top-3" />
+        {/* Header sticky con cierre */}
+        <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-sm px-5 pt-3 pb-2 flex items-center justify-between rounded-t-3xl">
+          <div className="w-10 h-1 bg-[#E5E7EB] rounded-full absolute left-1/2 -translate-x-1/2 top-2 sm:hidden" />
           <div className="w-8" />
-          <button
-            onClick={onClose}
-            className="ml-auto w-9 h-9 rounded-full bg-[#F4F4F5] flex items-center justify-center text-[#737373] hover:bg-[#E5E7EB] transition-colors active:scale-95"
-            aria-label="Cerrar"
-          >
+          <button onClick={onClose} aria-label="Cerrar"
+            className="ml-auto w-9 h-9 rounded-full bg-[#F4F4F5] flex items-center justify-center text-[#737373] hover:bg-[#E5E7EB] transition-colors active:scale-95">
             <X size={16} />
           </button>
         </div>
 
-        {/* Product image */}
-        <div className="w-full aspect-square bg-[#FEF3E2] overflow-hidden">
-          <img
-            src={product.imageUrl}
-            alt={product.name}
-            className="w-full h-full object-cover"
-          />
-        </div>
-
-        {/* Content */}
-        <div className="p-5 flex flex-col gap-4">
-          <h2 className="font-display font-black text-xl text-[#0A0A0A] leading-tight">
-            {product.name}
-          </h2>
-
-          {/* Prices — Bs. LARGE */}
-          <div className="flex flex-col gap-1">
-            <span className="text-4xl font-black text-[#FF6B00]">
-              ${product.priceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-            {priceBS ? (
-              <span className="text-2xl font-bold text-[#0A0A0A]">
-                Bs.&nbsp;{priceBS}
-              </span>
-            ) : (
-              <span className="text-sm text-[#AAAAAA]">Calculando tasa BCV...</span>
-            )}
+        <div className="overflow-y-auto px-5 pb-5 flex flex-col gap-4">
+          {/* Imagen */}
+          <div className="w-full aspect-square bg-white rounded-2xl border border-[#F0E8E0] overflow-hidden">
+            <img src={product.imageUrl} alt={product.name} className="w-full h-full object-contain p-4" />
           </div>
 
-          {/* Payment selector */}
-          {payments.length > 1 && (
-            <div className="flex flex-col gap-2">
-              <p className="text-xs font-semibold text-[#737373] uppercase tracking-widest">Método de pago</p>
-              <div className="flex flex-wrap gap-2">
-                {payments.map(m => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setSelectedPayment(m)}
-                    className="text-xs px-3 py-1.5 rounded-full border font-medium transition-all active:scale-95"
-                    style={{
-                      background:  selectedPayment === m ? '#FF6B00' : '#FEF3E2',
-                      borderColor: selectedPayment === m ? '#FF6B00' : '#F0E8E0',
-                      color:       selectedPayment === m ? '#fff' : '#737373',
-                    }}
-                  >
-                    {PAYMENT_LABELS[m] ?? m}
-                  </button>
-                ))}
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider bg-[#FEF3E2] text-[#FF6B00] px-2.5 py-1 rounded-full">
+              {product.categoria}
+            </span>
+            <h2 className="font-display font-black text-xl text-[#0A0A0A] leading-tight mt-2">{product.name}</h2>
+            <p className="text-sm text-[#737373] mt-1">{product.descripcion}</p>
+          </div>
+
+          {/* Método de pago */}
+          <PaymentMethods payment={payment} setPayment={setPayment} />
+
+          {/* Cupón de descuento */}
+          <CouponField
+            coupon={coupon}
+            couponInput={couponInput}
+            setCouponInput={setCouponInput}
+            couponError={couponError}
+            applyCoupon={applyCoupon}
+          />
+
+          {/* Sistema de descuentos / desglose */}
+          <div className="bg-[#FAFAFA] border border-[#F0E8E0] rounded-2xl p-4 flex flex-col gap-1.5 text-sm">
+            <Row label="Precio" value={fmtUSD(base)} />
+            {couponPct > 0 && <Row label={`Cupón ${DEMO_COUPON.code}`} value={`-${couponPct}%`} green />}
+            {payPct > 0 && <Row label={`Pago con ${paymentLabel(payment)}`} value={`-${payPct}%`} green />}
+            {saved > 0 && <Row label="Ahorras" value={fmtUSD(saved)} green bold />}
+            <div className="flex items-end justify-between border-t border-dashed border-[#E5E7EB] pt-2 mt-1">
+              <span className="text-sm font-semibold text-[#737373]">Total</span>
+              <div className="text-right">
+                <p className="text-2xl font-black text-[#FF6B00] leading-none">{fmtUSD(total)}</p>
+                <p className="text-lg font-black text-[#0A0A0A] mt-0.5">{fmtBS(total, rate)}</p>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Actions */}
-          <div className="flex flex-col gap-3 pt-1">
-            <button
-              type="button"
-              onClick={() => { onAddToCart(product, selectedPayment); onClose() }}
-              className="w-full h-12 rounded-2xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-[0.97]"
-              style={{ background: 'linear-gradient(135deg, #FF7A33 0%, #FF6B00 100%)' }}
-            >
+          {/* Acciones */}
+          <div className="flex flex-col gap-2">
+            <button type="button" onClick={onOrder}
+              className="w-full h-13 py-3.5 rounded-2xl font-black text-white text-base flex items-center justify-center gap-2 active:scale-[0.97]"
+              style={{ background: '#25D366', boxShadow: '0 4px 16px rgba(37,211,102,0.30)' }}>
+              <WhatsAppIcon size={18} />
+              Pedir por WhatsApp
+            </button>
+            <button type="button" onClick={onAddToCart}
+              className="w-full h-12 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.97] border"
+              style={{ borderColor: '#FF6B00', color: '#FF6B00', background: '#FEF3E2' }}>
               <ShoppingCart size={16} />
               Agregar al carrito
             </button>
-            <WaOrderButton
-              product={product}
-              priceBS={priceBS}
-              selectedPayment={selectedPayment}
-              phone=""
-              onBeforeOpen={handleOrder}
-            />
           </div>
         </div>
       </motion.div>
@@ -187,324 +350,275 @@ function ProductModal({
   )
 }
 
-// ── WA ORDER BUTTON (reusable) ───────────────────────────────────────────────
-function WaOrderButton({
-  product,
-  priceBS,
-  selectedPayment,
-  phone,
-  onBeforeOpen,
+// ── Modal de número de WhatsApp ─────────────────────────────────────────────────
+function PhoneModal({
+  summary, onClose, onConfirm,
+  payment, setPayment,
+  coupon, couponInput, setCouponInput, couponError, applyCoupon,
 }: {
-  product: Product
-  priceBS: string | null
-  selectedPayment: string
-  phone: string
-  onBeforeOpen?: () => void
-}) {
-  const handleClick = () => {
-    onBeforeOpen?.()
-    const method = PAYMENT_LABELS[selectedPayment] || selectedPayment
-    const bsText = priceBS ? ` y Bs. ${priceBS}` : ''
-    const msg = `Hola quiero ${product.name}, tiene un coste de: $${product.priceUSD}${bsText}\nVoy a pagar con ${method}, me pasan los datos por favor.`
-    const wa = phone ? normalizeVzlaPhone(phone) : '584120000000'
-    window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, '_blank')
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      className="w-full h-12 rounded-2xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all active:scale-[0.97]"
-      style={{ background: '#25D366', boxShadow: '0 4px 14px rgba(37,211,102,0.25)' }}
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-      </svg>
-      Pedir por WhatsApp
-    </button>
-  )
-}
-
-// ── PRODUCT CARD (store view) ────────────────────────────────────────────────
-function StoreProductCard({
-  product,
-  bsRate,
-  phone,
-  payments,
-  onCardClick,
-  onAddToCart,
-}: {
-  product: Product
-  bsRate: number | null
-  phone: string
-  payments: string[]
-  onCardClick: () => void
-  onAddToCart: (product: Product, payment: string) => void
-}) {
-  const [selectedPayment, setSelectedPayment] = useState(payments[0])
-  const priceBS = bsRate
-    ? (product.priceUSD * bsRate).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : null
-
-  return (
-    <div
-      className="bg-white rounded-3xl overflow-hidden border border-[#F0E8E0] flex flex-col cursor-pointer group"
-      style={{ boxShadow: '0 4px 24px rgba(255,107,0,0.07)' }}
-    >
-      {/* Image — clickable */}
-      <button
-        type="button"
-        onClick={onCardClick}
-        className="relative aspect-square bg-[#FEF3E2] overflow-hidden w-full focus:outline-none"
-        aria-label={`Ver detalle de ${product.name}`}
-      >
-        <img
-          src={product.imageUrl}
-          alt={product.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200 flex items-center justify-center">
-          <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-white/90 rounded-full px-3 py-1 text-xs font-semibold text-[#0A0A0A]">
-            Ver detalle
-          </span>
-        </div>
-      </button>
-
-      <div className="p-4 flex flex-col gap-3 flex-1">
-        <button
-          type="button"
-          onClick={onCardClick}
-          className="text-left focus:outline-none"
-        >
-          <h3 className="font-display font-black text-base text-[#0A0A0A] leading-tight hover:text-[#FF6B00] transition-colors">
-            {product.name}
-          </h3>
-        </button>
-
-        {/* Prices — Bs. BIG */}
-        <div className="flex flex-col gap-0.5">
-          <span className="text-2xl font-black text-[#FF6B00]">
-            ${product.priceUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-          {priceBS ? (
-            <span className="text-xl font-bold text-[#0A0A0A]">
-              Bs.&nbsp;{priceBS}
-            </span>
-          ) : (
-            <span className="text-sm text-[#AAAAAA]">Calculando tasa BCV...</span>
-          )}
-        </div>
-
-        {/* Payment chips */}
-        {payments.length > 1 && (
-          <div className="flex flex-wrap gap-1.5">
-            {payments.map(m => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setSelectedPayment(m)}
-                className="text-xs px-2.5 py-1 rounded-full border font-medium transition-all active:scale-95"
-                style={{
-                  background:  selectedPayment === m ? '#FF6B00' : '#FEF3E2',
-                  borderColor: selectedPayment === m ? '#FF6B00' : '#F0E8E0',
-                  color:       selectedPayment === m ? '#fff' : '#737373',
-                }}
-              >
-                {PAYMENT_LABELS[m] ?? m}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Buttons */}
-        <div className="flex flex-col gap-2 mt-auto pt-1">
-          <button
-            type="button"
-            onClick={() => onAddToCart(product, selectedPayment)}
-            className="w-full h-10 rounded-xl font-bold text-sm flex items-center justify-center gap-1.5 transition-all active:scale-[0.97] border"
-            style={{ borderColor: '#FF6B00', color: '#FF6B00', background: '#FEF3E2' }}
-          >
-            <ShoppingCart size={14} />
-            Agregar al carrito
-          </button>
-          <WaOrderButton
-            product={product}
-            priceBS={priceBS}
-            selectedPayment={selectedPayment}
-            phone={phone}
-          />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── CART PANEL ───────────────────────────────────────────────────────────────
-function CartPanel({
-  items,
-  bsRate,
-  phone,
-  onClose,
-  onRemove,
-  onQtyChange,
-}: {
-  items: CartItem[]
-  bsRate: number | null
-  phone: string
+  summary: React.ReactNode
   onClose: () => void
-  onRemove: (productId: string) => void
-  onQtyChange: (productId: string, delta: number) => void
+  onConfirm: (phone: string) => void
+  payment: string
+  setPayment: (id: string) => void
+  coupon: boolean
+  couponInput: string
+  setCouponInput: (v: string) => void
+  couponError: string
+  applyCoupon: () => void
 }) {
-  const totalUSD = items.reduce((acc, i) => acc + i.product.priceUSD * i.quantity, 0)
-  const totalBS  = bsRate ? totalUSD * bsRate : null
+  const [phone, setPhone] = useState('')
+  const [error, setError] = useState('')
 
-  const handleCheckout = () => {
-    if (items.length === 0) return
-    const lines = items.map(i => {
-      const bs = bsRate ? ` (Bs. ${(i.product.priceUSD * bsRate * i.quantity).toLocaleString('es-VE', { minimumFractionDigits: 2 })})` : ''
-      const method = PAYMENT_LABELS[i.paymentMethod] ?? i.paymentMethod
-      return `• ${i.product.name} ×${i.quantity} — $${(i.product.priceUSD * i.quantity).toFixed(2)}${bs} | Pago: ${method}`
-    }).join('\n')
-    const bsTotalLine = totalBS ? `\nTotal en Bs: Bs. ${totalBS.toLocaleString('es-VE', { minimumFractionDigits: 2 })}` : ''
-    const msg = `Hola, quiero hacer este pedido 🛒\n\n${lines}\n\nTotal: $${totalUSD.toFixed(2)}${bsTotalLine}\n\n¿Me pasan los datos para pagar?`
-    const wa = phone ? normalizeVzlaPhone(phone) : '584120000000'
-    window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, '_blank')
-    onClose()
+  const handleBuy = () => {
+    if (!isValidVzlaPhone(phone)) {
+      setError('Número inválido. Debe ser 0414, 0416, 0422, 0424 o 0426.')
+      return
+    }
+    onConfirm(phone)
   }
 
   return (
     <motion.div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:justify-end"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
     >
-      {/* Backdrop */}
-      <motion.div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-        onClick={onClose}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      />
+      <motion.div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
 
-      {/* Panel */}
       <motion.div
-        className="relative w-full sm:w-96 sm:h-full bg-white rounded-t-3xl sm:rounded-none sm:rounded-l-3xl flex flex-col z-10 overflow-hidden"
-        style={{ maxHeight: '90dvh' }}
-        initial={{ y: '100%', x: '0%' }}
-        animate={{ y: 0, x: 0 }}
-        exit={{ y: '100%' }}
+        className="relative w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-3xl z-10 flex flex-col"
+        style={{ maxHeight: '92dvh' }}
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
       >
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-white border-b border-[#F0E8E0] px-5 py-4 flex items-center justify-between">
+        <div className="sticky top-0 z-20 bg-white px-5 pt-3 pb-2 flex items-center justify-between rounded-t-3xl">
+          <div className="w-10 h-1 bg-[#E5E7EB] rounded-full absolute left-1/2 -translate-x-1/2 top-2 sm:hidden" />
+          <div className="w-8" />
+          <button onClick={onClose} aria-label="Cerrar"
+            className="ml-auto w-9 h-9 rounded-full bg-[#F4F4F5] flex items-center justify-center text-[#737373] hover:bg-[#E5E7EB] transition-colors active:scale-95">
+            <X size={16} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto px-5 pb-5 flex flex-col gap-4">
+          <div className="text-center">
+            <div className="w-14 h-14 rounded-full mx-auto flex items-center justify-center text-white mb-2"
+              style={{ background: '#25D366' }}>
+              <WhatsAppIcon size={26} />
+            </div>
+            <h2 className="font-display font-black text-lg text-[#0A0A0A]">Coloca el número de tu tienda para la demo</h2>
+            <p className="text-sm text-[#737373] mt-1">
+              Este sería el WhatsApp donde te llegarían los pedidos de tus clientes. Pon tu número y mira cómo te llega este pedido listo para cerrar la venta.
+            </p>
+          </div>
+
+          {summary}
+
+          {/* Método de pago dentro del checkout */}
+          <PaymentMethods payment={payment} setPayment={setPayment} />
+
+          {/* Cupón dentro del checkout */}
+          <CouponField
+            coupon={coupon}
+            couponInput={couponInput}
+            setCouponInput={setCouponInput}
+            couponError={couponError}
+            applyCoupon={applyCoupon}
+          />
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm font-semibold text-[#0A0A0A]">Número de WhatsApp de tu tienda</label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              placeholder="0414-1234567"
+              value={phone}
+              onChange={e => { setPhone(e.target.value); setError('') }}
+              className="w-full h-13 py-3.5 px-4 rounded-xl border bg-white outline-none transition-colors"
+              style={{ fontSize: '16px', borderColor: error ? '#DC2626' : '#E5E7EB', color: '#0A0A0A' }}
+              onFocus={e => { e.target.style.borderColor = '#FF6B00'; e.target.style.boxShadow = '0 0 0 3px rgba(255,107,0,0.12)' }}
+              onBlur={e  => { e.target.style.borderColor = error ? '#DC2626' : '#E5E7EB'; e.target.style.boxShadow = 'none' }}
+            />
+            {error && <p className="text-xs text-red-500">{error}</p>}
+            <p className="text-xs text-[#94A3B8]">Acepta 0414, 0416, 0422, 0424, 0426 — con o sin guiones</p>
+          </div>
+
+          <button type="button" onClick={handleBuy}
+            className="w-full rounded-2xl font-black text-white flex items-center justify-center gap-3 active:scale-[0.97] transition-transform"
+            style={{ height: '72px', fontSize: '20px', background: '#25D366', boxShadow: '0 6px 28px rgba(37,211,102,0.40)' }}>
+            <WhatsAppIcon size={26} />
+            Comprar
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ── Drawer del carrito ─────────────────────────────────────────────────────────
+function CartDrawer({
+  items, rate, onClose, onInc, onDec, onRemove, onAdd, onClear,
+  coupon, couponInput, setCouponInput, couponError, applyCoupon,
+  payment, setPayment, onCheckout,
+}: {
+  items: CartItem[]
+  rate: number | null
+  onClose: () => void
+  onInc: (id: string) => void
+  onDec: (id: string) => void
+  onRemove: (id: string) => void
+  onAdd: (p: DemoProduct) => void
+  onClear: () => void
+  coupon: boolean
+  couponInput: string
+  setCouponInput: (v: string) => void
+  couponError: string
+  applyCoupon: () => void
+  payment: string
+  setPayment: (id: string) => void
+  onCheckout: () => void
+}) {
+  const calc = priceCart(items, coupon, payment)
+  const inCart = new Set(items.map(i => i.product.id))
+  const upsell = DEMO_PRODUCTS.filter(p => !inCart.has(p.id)).slice(0, 3)
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-end sm:items-stretch sm:justify-end"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    >
+      <motion.div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
+
+      <motion.div
+        className="relative w-full sm:w-[420px] bg-white rounded-t-3xl sm:rounded-none flex flex-col z-10"
+        style={{ maxHeight: '92dvh' }}
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 300 }}
+      >
+        <div className="sticky top-0 z-20 bg-white border-b border-[#F0E8E0] px-5 py-4 flex items-center justify-between">
+          <div className="w-10 h-1 bg-[#E5E7EB] rounded-full absolute left-1/2 -translate-x-1/2 top-2 sm:hidden" />
           <div className="flex items-center gap-2">
             <ShoppingCart size={18} className="text-[#FF6B00]" />
             <span className="font-display font-black text-base text-[#0A0A0A]">
               Tu carrito ({items.reduce((a, i) => a + i.quantity, 0)})
             </span>
           </div>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 rounded-full bg-[#F4F4F5] flex items-center justify-center text-[#737373] hover:bg-[#E5E7EB] transition-colors active:scale-95"
-            aria-label="Cerrar carrito"
-          >
-            <X size={16} />
-          </button>
+          <div className="flex items-center gap-2">
+            {items.length > 0 && (
+              <button onClick={onClear}
+                className="text-xs text-[#94A3B8] hover:text-red-400 transition-colors flex items-center gap-1">
+                <Trash2 size={13} /> Vaciar
+              </button>
+            )}
+            <button onClick={onClose} aria-label="Cerrar carrito"
+              className="w-9 h-9 rounded-full bg-[#F4F4F5] flex items-center justify-center text-[#737373] hover:bg-[#E5E7EB] transition-colors active:scale-95">
+              <X size={16} />
+            </button>
+          </div>
         </div>
 
-        {/* Items */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
+        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
               <ShoppingCart size={36} className="text-[#E5E7EB]" />
-              <p className="text-sm text-[#737373]">Tu carrito está vacío.<br />Agrega productos desde la tienda.</p>
+              <p className="text-sm text-[#737373]">Tu carrito está vacío.<br />Agrega productos para ver la magia.</p>
             </div>
           ) : (
-            items.map(item => {
-              const priceBS = bsRate
-                ? (item.product.priceUSD * bsRate * item.quantity).toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                : null
-              return (
-                <div key={item.product.id} className="flex items-start gap-3 p-3 rounded-2xl border border-[#F0E8E0] bg-[#FAFAFA]">
-                  <img
-                    src={item.product.imageUrl}
-                    alt={item.product.name}
-                    className="w-14 h-14 rounded-xl object-cover shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#0A0A0A] leading-tight truncate">{item.product.name}</p>
-                    <p className="text-sm font-black text-[#FF6B00] mt-0.5">
-                      ${(item.product.priceUSD * item.quantity).toFixed(2)}
-                    </p>
-                    {priceBS && (
-                      <p className="text-base font-bold text-[#0A0A0A]">Bs.&nbsp;{priceBS}</p>
-                    )}
-                    <p className="text-xs text-[#737373] mt-0.5">
-                      {PAYMENT_LABELS[item.paymentMethod] ?? item.paymentMethod}
-                    </p>
-                    {/* Qty control */}
-                    <div className="flex items-center gap-2 mt-2">
-                      <button
-                        onClick={() => onQtyChange(item.product.id, -1)}
-                        className="w-7 h-7 rounded-full bg-white border border-[#E5E7EB] flex items-center justify-center text-[#737373] hover:border-[#FF6B00] hover:text-[#FF6B00] transition-colors active:scale-95"
-                      >
-                        <Minus size={12} />
-                      </button>
-                      <span className="text-sm font-bold text-[#0A0A0A] w-4 text-center">{item.quantity}</span>
-                      <button
-                        onClick={() => onQtyChange(item.product.id, 1)}
-                        className="w-7 h-7 rounded-full bg-white border border-[#E5E7EB] flex items-center justify-center text-[#737373] hover:border-[#FF6B00] hover:text-[#FF6B00] transition-colors active:scale-95"
-                      >
-                        <Plus size={12} />
-                      </button>
+            <>
+              <div className="flex flex-col gap-3">
+                {items.map(item => (
+                  <div key={item.product.id} className="flex items-start gap-3 p-3 rounded-2xl border border-[#F0E8E0] bg-[#FAFAFA]">
+                    <img src={item.product.imageUrl} alt={item.product.name}
+                      className="w-14 h-14 rounded-xl object-contain bg-white border border-[#F0E8E0] shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-[#0A0A0A] leading-tight">{item.product.name}</p>
+                      <p className="text-base font-black text-[#FF6B00] mt-0.5">{fmtUSD(item.product.priceUSD * item.quantity)}</p>
+                      <p className="text-base font-black text-[#0A0A0A]">{fmtBS(item.product.priceUSD * item.quantity, rate)}</p>
+                      <div className="flex items-center gap-2 mt-2">
+                        <button onClick={() => onDec(item.product.id)}
+                          className="w-7 h-7 rounded-full bg-white border border-[#E5E7EB] flex items-center justify-center text-[#737373] hover:border-[#FF6B00] hover:text-[#FF6B00] active:scale-95">
+                          <Minus size={12} />
+                        </button>
+                        <span className="text-sm font-bold text-[#0A0A0A] w-4 text-center">{item.quantity}</span>
+                        <button onClick={() => onInc(item.product.id)}
+                          className="w-7 h-7 rounded-full bg-white border border-[#E5E7EB] flex items-center justify-center text-[#737373] hover:border-[#FF6B00] hover:text-[#FF6B00] active:scale-95">
+                          <Plus size={12} />
+                        </button>
+                      </div>
                     </div>
+                    <button onClick={() => onRemove(item.product.id)} aria-label="Eliminar"
+                      className="text-[#CCCCCC] hover:text-red-400 transition-colors p-1 active:scale-95">
+                      <Trash2 size={15} />
+                    </button>
                   </div>
-                  <button
-                    onClick={() => onRemove(item.product.id)}
-                    className="text-[#CCCCCC] hover:text-red-400 transition-colors p-1 active:scale-95"
-                    aria-label="Eliminar producto"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                ))}
+              </div>
+
+              {/* Upselling */}
+              {upsell.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs font-bold uppercase tracking-widest text-[#FF6B00] flex items-center gap-1.5">
+                    <Sparkles size={13} /> Completa tu compra
+                  </p>
+                  <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+                    {upsell.map(p => (
+                      <div key={p.id} className="shrink-0 w-32 bg-white border border-[#F0E8E0] rounded-2xl p-2 flex flex-col gap-1">
+                        <img src={p.imageUrl} alt={p.name} className="w-full aspect-square object-contain rounded-lg bg-[#FAFAFA]" />
+                        <p className="text-xs font-semibold text-[#0A0A0A] leading-tight line-clamp-1">{p.name}</p>
+                        <span className="text-sm font-black text-[#FF6B00] leading-none">{fmtUSD(p.priceUSD)}</span>
+                        <span className="text-xs font-black text-[#0A0A0A]">{fmtBS(p.priceUSD, rate)}</span>
+                        <button onClick={() => onAdd(p)}
+                          className="mt-1 w-full h-8 rounded-lg text-xs font-bold text-[#FF6B00] border border-[#FF6B00] flex items-center justify-center gap-1 active:scale-95">
+                          <Plus size={12} /> Agregar
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              )
-            })
+              )}
+
+              {/* Cupón */}
+              <CouponField
+                coupon={coupon}
+                couponInput={couponInput}
+                setCouponInput={setCouponInput}
+                couponError={couponError}
+                applyCoupon={applyCoupon}
+              />
+
+              {/* Método de pago */}
+              <PaymentMethods payment={payment} setPayment={setPayment} />
+            </>
           )}
         </div>
 
-        {/* Footer totals + checkout */}
+        {/* Footer: desglose + total + CTA */}
         {items.length > 0 && (
-          <div className="border-t border-[#F0E8E0] px-5 py-5 flex flex-col gap-3 bg-white">
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-[#737373]">Subtotal USD</span>
-                <span className="font-black text-[#0A0A0A]">${totalUSD.toFixed(2)}</span>
-              </div>
-              {totalBS && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-[#737373]">Total en Bs.</span>
-                  <span className="text-xl font-black text-[#0A0A0A]">
-                    Bs.&nbsp;{totalBS.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                </div>
-              )}
+          <div className="border-t border-[#F0E8E0] px-5 py-4 flex flex-col gap-3 bg-white">
+            <div className="flex flex-col gap-1.5 text-sm">
+              <Row label="Subtotal" value={fmtUSD(calc.subtotal)} />
+              {calc.qtyPct > 0 && <Row label={`Descuento demo (${calc.distinct} × ${PER_PRODUCT_DISCOUNT}%)`} value={`-${calc.qtyPct}%`} green />}
+              {calc.couponPct > 0 && <Row label={`Cupón ${DEMO_COUPON.code}`} value={`-${calc.couponPct}%`} green />}
+              {calc.payPct > 0 && <Row label={`Pago con ${paymentLabel(payment)}`} value={`-${calc.payPct}%`} green />}
+              {calc.saved > 0 && <Row label="Ahorras" value={fmtUSD(calc.saved)} green bold />}
             </div>
-            <button
-              type="button"
-              onClick={handleCheckout}
-              className="w-full h-14 rounded-2xl font-black text-white text-base flex items-center justify-center gap-2 transition-all active:scale-[0.97]"
-              style={{ background: '#25D366', boxShadow: '0 4px 20px rgba(37,211,102,0.30)' }}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-                <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-              </svg>
-              Pedir todo por WhatsApp
+
+            <div className="flex items-end justify-between border-t border-dashed border-[#E5E7EB] pt-3">
+              <span className="text-sm font-semibold text-[#737373]">Total a pagar</span>
+              <div className="text-right">
+                <p className="text-2xl font-black text-[#FF6B00] leading-none">{fmtUSD(calc.total)}</p>
+                <p className="text-lg font-black text-[#0A0A0A] mt-1">{fmtBS(calc.total, rate)}</p>
+              </div>
+            </div>
+
+            <button type="button" onClick={onCheckout}
+              className="w-full h-14 rounded-2xl font-black text-white text-base flex items-center justify-center gap-2 active:scale-[0.97]"
+              style={{ background: '#25D366', boxShadow: '0 4px 20px rgba(37,211,102,0.30)' }}>
+              <WhatsAppIcon size={20} />
+              Pedir por WhatsApp
             </button>
-            <p className="text-center text-xs text-[#94A3B8]">
-              Se abrirá WhatsApp con el pedido completo
-            </p>
           </div>
         )}
       </motion.div>
@@ -512,414 +626,322 @@ function CartPanel({
   )
 }
 
-// ── MAIN PAGE ────────────────────────────────────────────────────────────────
+function Row({ label, value, green, bold }: { label: string; value: string; green?: boolean; bold?: boolean }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className={`${bold ? 'font-bold' : ''} text-[#737373]`}>{label}</span>
+      <span className={`${bold ? 'font-black' : 'font-semibold'} ${green ? 'text-[#16A34A]' : 'text-[#0A0A0A]'}`}>{value}</span>
+    </div>
+  )
+}
+
+// ── Modal de bienvenida (al cargar la demo) ─────────────────────────────────────
+function IntroModal({ onClose, onCta }: { onClose: () => void; onCta: () => void }) {
+  return (
+    <motion.div
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    >
+      <motion.div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
+
+      <motion.div
+        className="relative w-full max-w-sm bg-white rounded-3xl z-10 p-6 flex flex-col items-center text-center gap-3"
+        initial={{ scale: 0.92, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.92, opacity: 0, y: 20 }}
+        transition={{ type: 'spring', damping: 26, stiffness: 300 }}
+      >
+        <button onClick={onClose} aria-label="Cerrar"
+          className="absolute top-3 right-3 w-9 h-9 rounded-full bg-[#F4F4F5] flex items-center justify-center text-[#737373] hover:bg-[#E5E7EB] transition-colors active:scale-95">
+          <X size={16} />
+        </button>
+
+        <img src="/logo.png" alt="Tienda Pana" className="w-20 h-20 object-contain"
+          style={{ filter: 'drop-shadow(0 8px 24px rgba(255,107,0,0.22))' }} />
+        <h2 className="font-display font-black text-2xl text-[#0A0A0A] leading-tight">
+          Esto es una <span className="text-[#FF6B00]">demo</span>
+        </h2>
+        <p className="text-sm text-[#737373]">
+          Así de profesional se vería tu tienda online — pero <strong className="text-[#0A0A0A]">totalmente
+          personalizada</strong> con tu marca, tus colores, tus productos reales y tu dominio .com.
+          Explórala, agrega al carrito y prueba el cupón <strong className="text-[#FF6B00]">PANA</strong>.
+        </p>
+        <button type="button" onClick={onClose}
+          className="w-full h-12 rounded-2xl font-black text-white text-sm flex items-center justify-center gap-2 active:scale-[0.97] mt-1"
+          style={{ background: 'linear-gradient(135deg, #FF7A33 0%, #FF6B00 100%)' }}>
+          Explorar la demo
+        </button>
+        <button type="button" onClick={onCta} className="text-sm font-semibold text-[#25D366] underline underline-offset-2">
+          O pídeme mi tienda online ya
+        </button>
+      </motion.div>
+    </motion.div>
+  )
+}
+
+// ── PÁGINA PRINCIPAL ─────────────────────────────────────────────────────────
 export default function DemoPage() {
   const navigate = useNavigate()
   const { data: rateData } = useDollarRate()
-  const bsRate = rateData?.promedio ?? null
+  const rate = rateData?.promedio ?? null
 
-  // Setup state
-  const [phone,    setPhone]    = useState('')
-  const [payments, setPayments] = useState<string[]>(['pago-movil'])
-  const [products, setProducts] = useState<Product[]>([])
-  const [forms,    setForms]    = useState<number[]>([0])
-  const [step,     setStep]     = useState<Step>('setup')
-
-  // Store state
-  const [cartItems,      setCartItems]      = useState<CartItem[]>([])
-  const [cartOpen,       setCartOpen]       = useState(false)
-  const [activeProduct,  setActiveProduct]  = useState<Product | null>(null)
+  const [cartItems, setCartItems] = useState<CartItem[]>([])
+  const [cartOpen, setCartOpen]   = useState(false)
+  const [coupon, setCoupon]       = useState(false)
+  const [couponInput, setCouponInput] = useState('')
+  const [couponError, setCouponError] = useState('')
+  const [payment, setPayment]     = useState('pago-movil')
+  const [activeProduct, setActiveProduct] = useState<DemoProduct | null>(null)
+  const [pendingOrder, setPendingOrder]   = useState<PendingOrder>(null)
+  const [introOpen, setIntroOpen] = useState(true)
 
   const cartCount = cartItems.reduce((a, i) => a + i.quantity, 0)
+  const goToRequest = () => navigate(DEMO_REQUEST_PATH)
 
-  // Handlers — setup
-  const togglePayment = (id: string) => {
-    setPayments(prev =>
-      prev.includes(id) ? (prev.length > 1 ? prev.filter(p => p !== id) : prev) : [...prev, id]
-    )
-  }
-
-  const addProduct = (product: Product) => {
-    setProducts(prev => [...prev, product])
-  }
-
-  const removeForm = (idx: number) => setForms(prev => prev.filter(i => i !== idx))
-
-  const addForm = () => {
-    if (forms.length + products.length >= 5) return
-    setForms(prev => [...prev, prev.length + products.length])
-  }
-
-  const handleLaunch = () => {
-    if (!phone.trim()) {
-      showFieldToast('tu número de WhatsApp')
-      return
-    }
-    if (!isValidVzlaPhone(phone)) {
-      showFieldToast('un número venezolano válido (ej: 0414-1234567)')
-      return
-    }
-    if (products.length === 0) {
-      showFieldToast('al menos un producto')
-      return
-    }
-    setStep('store')
-  }
-
-  // Handlers — cart
-  const addToCart = (product: Product, paymentMethod: string) => {
+  const addToCart = (p: DemoProduct) => {
     setCartItems(prev => {
-      const existing = prev.find(i => i.product.id === product.id)
-      if (existing) {
-        return prev.map(i =>
-          i.product.id === product.id
-            ? { ...i, quantity: i.quantity + 1, paymentMethod }
-            : i
-        )
-      }
-      return [...prev, { product, quantity: 1, paymentMethod }]
+      const ex = prev.find(i => i.product.id === p.id)
+      if (ex) return prev.map(i => i.product.id === p.id ? { ...i, quantity: i.quantity + 1 } : i)
+      return [...prev, { product: p, quantity: 1 }]
     })
-    setCartOpen(true)
+  }
+  const inc = (id: string) => setCartItems(prev => prev.map(i => i.product.id === id ? { ...i, quantity: i.quantity + 1 } : i))
+  const dec = (id: string) => setCartItems(prev => prev
+    .map(i => i.product.id === id ? { ...i, quantity: i.quantity - 1 } : i)
+    .filter(i => i.quantity > 0))
+  const remove = (id: string) => setCartItems(prev => prev.filter(i => i.product.id !== id))
+  const clearCart = () => setCartItems([])
+
+  const applyCoupon = () => {
+    if (couponInput.trim().toUpperCase() === DEMO_COUPON.code) { setCoupon(true); setCouponError('') }
+    else setCouponError('Ese cupón no existe. Prueba con PANA 😉')
   }
 
-  const removeFromCart = (productId: string) => {
-    setCartItems(prev => prev.filter(i => i.product.id !== productId))
+  // Confirmar pedido → abre WhatsApp con mensaje
+  const handlePhoneConfirm = (phoneRaw: string) => {
+    const wa = normalizeVzlaPhone(phoneRaw)
+    let msg = ''
+
+    if (pendingOrder?.type === 'single') {
+      const p = pendingOrder.product
+      const { total, couponPct } = priceSingle(p, payment, coupon)
+      const cuponTxt = couponPct > 0 ? ` (con cupón ${DEMO_COUPON.code} -${couponPct}%)` : ''
+      msg = `Hola quiero ${p.name} con un valor de ${fmtUSD(total)} y ${fmtBS(total, rate)}${cuponTxt} voy a pagar con ${paymentLabel(payment)} me manda los datos por favor.`
+    } else if (pendingOrder?.type === 'cart' && cartItems.length > 0) {
+      const calc = priceCart(cartItems, coupon, payment)
+      const lines = cartItems
+        .map(i => `• ${i.product.name} ×${i.quantity} — ${fmtUSD(i.product.priceUSD * i.quantity)}`)
+        .join('\n')
+      const descLines = [
+        calc.qtyPct  > 0 ? `Descuento demo: -${calc.qtyPct}%` : '',
+        calc.couponPct > 0 ? `Cupón ${DEMO_COUPON.code}: -${calc.couponPct}%` : '',
+        calc.payPct  > 0 ? `Pago ${paymentLabel(payment)}: -${calc.payPct}%` : '',
+      ].filter(Boolean).join('\n')
+      const descBlock = descLines ? `\n${descLines}` : ''
+      msg = `Hola, quiero hacer este pedido 🛒\n\n${lines}\n\nSubtotal: ${fmtUSD(calc.subtotal)}${descBlock}\n\nTotal: ${fmtUSD(calc.total)} (${fmtBS(calc.total, rate)})\nVoy a pagar con ${paymentLabel(payment)}\n\n¿Me pasan los datos para pagar?`
+    }
+
+    if (msg) window.open(`https://wa.me/${wa}?text=${encodeURIComponent(msg)}`, '_blank')
+    setPendingOrder(null)
   }
 
-  const changeQty = (productId: string, delta: number) => {
-    setCartItems(prev =>
-      prev
-        .map(i => i.product.id === productId ? { ...i, quantity: i.quantity + delta } : i)
-        .filter(i => i.quantity > 0)
-    )
-  }
-
-  const totalSlots = forms.length + products.length
-  const canAddMore = totalSlots < 5
-
-  // ── SETUP SCREEN ────────────────────────────────────────────────────────────
-  if (step === 'setup') {
-    return (
-      <div className="min-h-screen" style={{ background: '#FEF3E2' }}>
-        <header className="sticky top-0 z-30 border-b border-[#F0E8E0]"
-          style={{ background: 'rgba(254,243,226,0.95)', backdropFilter: 'blur(8px)' }}>
-          <div className="max-w-xl mx-auto px-5 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="Tienda Pana" className="w-7 h-7 object-contain" />
-              <span className="font-display font-black text-base text-[#0A0A0A]">
-                Tienda<span className="text-[#FF6B00]">Pana</span>
-                <span className="text-[#737373] font-normal text-xs ml-1.5">· Demo</span>
-              </span>
-            </div>
-            <span className="text-xs text-[#737373] bg-white px-2.5 py-1 rounded-full border border-[#F0E8E0]">
-              {products.length}/5 productos
-            </span>
+  // Resumen mostrado dentro del PhoneModal
+  const orderSummary = (() => {
+    if (pendingOrder?.type === 'single') {
+      const { total } = priceSingle(pendingOrder.product, payment, coupon)
+      return (
+        <div className="flex items-center gap-3 p-3 rounded-2xl border border-[#F0E8E0] bg-[#FAFAFA]">
+          <img src={pendingOrder.product.imageUrl} alt={pendingOrder.product.name}
+            className="w-14 h-14 rounded-xl object-contain bg-white border border-[#F0E8E0] shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-[#0A0A0A] leading-tight">{pendingOrder.product.name}</p>
+            <p className="text-base font-black text-[#FF6B00] mt-0.5">{fmtUSD(total)}</p>
+            <p className="text-base font-black text-[#0A0A0A]">{fmtBS(total, rate)}</p>
+            <p className="text-xs text-[#737373] mt-0.5">Pago: {paymentLabel(payment)}</p>
           </div>
-        </header>
-
-        <div className="max-w-xl mx-auto px-5 py-8 flex flex-col gap-6">
-
-          {/* Hero copy */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="text-center flex flex-col gap-2"
-          >
-            <img src="/logo.png" alt="" className="w-20 h-20 object-contain mx-auto"
-              style={{ filter: 'drop-shadow(0 8px 24px rgba(255,107,0,0.20))' }} />
-            <h1 className="font-display font-black text-2xl text-[#0A0A0A] leading-tight">
-              Crea tu tienda demo en{' '}
-              <span className="text-[#FF6B00]">60 segundos</span>
-            </h1>
-            <p className="text-sm text-[#737373]">
-              Sube hasta 5 productos y mira cómo se ve tu tienda online. Cero código, cero costo.
-            </p>
-          </motion.div>
-
-          {/* Phone */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.08 }}
-            className="flex flex-col gap-2"
-          >
-            <label className="text-sm font-semibold text-[#0A0A0A]">
-              Tu número de WhatsApp <span className="text-[#FF6B00]">*</span>
-            </label>
-            <input
-              type="tel"
-              inputMode="numeric"
-              placeholder="0414-1234567 o 04241234567"
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              style={inputStyle(false)}
-              onFocus={e => { e.target.style.borderColor = '#FF6B00'; e.target.style.boxShadow = '0 0 0 3px rgba(255,107,0,0.12)' }}
-              onBlur={e  => { e.target.style.borderColor = '#E5E7EB'; e.target.style.boxShadow = 'none' }}
-            />
-            <p className="text-xs text-[#94A3B8]">Acepta 0414, 0416, 0424, 0426, 0412 — con o sin guiones</p>
-          </motion.div>
-
-          {/* Payment methods */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.14 }}
-            className="flex flex-col gap-2"
-          >
-            <label className="text-sm font-semibold text-[#0A0A0A]">
-              Métodos de pago <span className="text-[#FF6B00]">*</span>
-            </label>
-            <div className="flex flex-col gap-2">
-              {PAYMENT_OPTS.map(opt => {
-                const active = payments.includes(opt.id)
-                return (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => togglePayment(opt.id)}
-                    className="flex items-center gap-3 px-4 py-3 rounded-xl border text-sm font-medium transition-all active:scale-[0.98] text-left"
-                    style={{
-                      background:  active ? '#FEF3E2' : '#fff',
-                      borderColor: active ? '#FF6B00' : '#E5E7EB',
-                      color:       active ? '#0A0A0A' : '#737373',
-                      boxShadow:   active ? '0 0 0 2px #FF6B00' : 'none',
-                    }}
-                  >
-                    <span className="text-lg">{opt.icon}</span>
-                    {opt.label}
-                    {active && <span className="ml-auto text-[#FF6B00] font-bold text-xs">✓</span>}
-                  </button>
-                )
-              })}
-            </div>
-          </motion.div>
-
-          {/* Product forms */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="flex flex-col gap-3"
-          >
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-semibold text-[#0A0A0A]">
-                Tus productos <span className="text-[#FF6B00]">*</span>
-              </label>
-              <span className="text-xs text-[#94A3B8]">Máximo 5</span>
-            </div>
-
-            <AnimatePresence>
-              {forms.map((formIdx) => (
-                <motion.div
-                  key={formIdx}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.25 }}
-                >
-                  <ProductForm
-                    index={products.length + forms.indexOf(formIdx)}
-                    onAdd={addProduct}
-                    onRemove={() => removeForm(formIdx)}
-                    canRemove={forms.length > 1 || products.length > 0}
-                  />
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            {products.length > 0 && (
-              <div className="flex flex-col gap-2">
-                {products.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl p-3">
-                    <img src={p.imageUrl} alt={p.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-[#0A0A0A] truncate">{p.name}</p>
-                      <p className="text-xs text-[#16A34A]">${p.priceUSD.toFixed(2)} · Listo ✓</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {canAddMore && (
-              <button
-                type="button"
-                onClick={addForm}
-                className="w-full h-11 rounded-xl border-2 border-dashed border-[#FF6B00]/40 text-sm font-semibold text-[#FF6B00] flex items-center justify-center gap-2 transition-colors hover:border-[#FF6B00] active:scale-[0.98]"
-              >
-                <Plus size={16} />
-                Agregar otro producto ({totalSlots}/5)
-              </button>
-            )}
-          </motion.div>
-
-          {/* Launch */}
-          <motion.button
-            type="button"
-            onClick={handleLaunch}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.28 }}
-            whileTap={{ scale: 0.97 }}
-            className="w-full h-14 rounded-2xl font-black text-white text-base flex items-center justify-center gap-2"
-            style={{
-              background: 'linear-gradient(135deg, #FF7A33 0%, #FF6B00 100%)',
-              boxShadow: '0 4px 20px rgba(255,107,0,0.35)',
-            }}
-          >
-            🚀 Ver mi tienda demo
-          </motion.button>
-
-          <p className="text-center text-xs text-[#94A3B8]">
-            Los datos no se guardan — si recargas la página empiezas de nuevo.
-          </p>
         </div>
-      </div>
-    )
-  }
+      )
+    }
+    if (pendingOrder?.type === 'cart') {
+      const calc = priceCart(cartItems, coupon, payment)
+      return (
+        <div className="p-3 rounded-2xl border border-[#F0E8E0] bg-[#FAFAFA] flex flex-col gap-1">
+          <p className="text-sm font-semibold text-[#0A0A0A]">{cartCount} producto(s) · Pago: {paymentLabel(payment)}</p>
+          <p className="text-xl font-black text-[#FF6B00] leading-none">{fmtUSD(calc.total)}</p>
+          <p className="text-base font-black text-[#0A0A0A]">{fmtBS(calc.total, rate)}</p>
+        </div>
+      )
+    }
+    return null
+  })()
 
-  // ── STORE VIEW ───────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
-
-      {/* Store header */}
+    <div className="min-h-screen bg-[#FAFAFA] pb-24 sm:pb-0">
+      {/* Header */}
       <header className="sticky top-0 z-30 bg-white border-b border-[#F0E8E0]"
         style={{ boxShadow: '0 1px 12px rgba(0,0,0,0.05)' }}>
-        <div className="max-w-2xl mx-auto px-5 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Tienda Pana" className="w-7 h-7 object-contain" />
-            <span className="font-display font-black text-base text-[#0A0A0A]">
+        <div className="max-w-3xl mx-auto px-4 h-14 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <img src="/logo.png" alt="Tienda Pana" className="w-7 h-7 object-contain shrink-0" />
+            <span className="font-display font-black text-base text-[#0A0A0A] truncate">
               Mi Tienda<span className="text-[#FF6B00]"> Demo</span>
             </span>
           </div>
-          <div className="flex items-center gap-3">
-            {/* Cart button */}
-            <button
-              type="button"
-              onClick={() => setCartOpen(true)}
-              className="relative flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-[#E5E7EB] text-sm font-semibold text-[#0A0A0A] hover:border-[#FF6B00] hover:text-[#FF6B00] transition-colors active:scale-95"
-              aria-label="Ver carrito"
-            >
-              <ShoppingCart size={15} />
-              <span className="hidden sm:inline">Carrito</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <button type="button" onClick={goToRequest}
+              className="hidden sm:flex h-9 px-4 rounded-full font-bold text-sm text-white items-center gap-1.5 active:scale-95"
+              style={{ background: '#25D366' }}>
+              <WhatsAppIcon size={15} /> Quiero mi tienda
+            </button>
+            <button type="button" onClick={() => setCartOpen(true)} aria-label="Ver carrito"
+              className="relative flex items-center gap-1.5 h-9 px-3.5 rounded-full border border-[#E5E7EB] text-sm font-semibold text-[#0A0A0A] hover:border-[#FF6B00] hover:text-[#FF6B00] transition-colors active:scale-95">
+              <ShoppingCart size={16} />
               {cartCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#FF6B00] text-white text-[10px] font-black flex items-center justify-center">
                   {cartCount}
                 </span>
               )}
             </button>
-            <button
-              onClick={() => setStep('setup')}
-              className="text-xs text-[#737373] border border-[#E5E7EB] px-3 py-1.5 rounded-full hover:border-[#FF6B00] hover:text-[#FF6B00] transition-colors"
-            >
-              ← Editar
-            </button>
           </div>
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 flex flex-col gap-6">
-
-        {/* Demo badge */}
+      <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col gap-6">
+        {/* Aviso demo + BCV + cupón */}
         <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-[#FEF3E2] border border-[#FF6B00]/20 rounded-2xl px-4 py-3 text-center"
+          initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-[#FEF3E2] border border-[#FF6B00]/20 rounded-2xl px-4 py-3 flex flex-col gap-1.5 text-center"
         >
           <p className="text-xs text-[#FF6B00] font-semibold">
-            👀 Esta es tu demo — así se verá tu tienda profesional con Tienda Pana pero con un diseño personalizado.
+            👀 Esto es una tienda demo. Así de pro se verá la tuya con Tienda Pana — totalmente personalizada.
           </p>
+          <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-[#737373]">
+            {rate && (
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                Tasa BCV: <strong className="text-[#0A0A0A]">Bs. {rate.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+              </span>
+            )}
+            <span>· Cupón demo: <strong className="text-[#FF6B00]">{DEMO_COUPON.code}</strong> (-{DEMO_COUPON.percent}%)</span>
+            <span>· Binance -30%</span>
+          </div>
         </motion.div>
 
-        {/* BCV badge */}
-        {bsRate && (
-          <div className="flex items-center justify-center gap-1.5 text-xs text-[#737373]">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            <span>Tasa BCV: <strong className="text-[#0A0A0A]">Bs. {bsRate.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong> · Actualizada automáticamente</span>
-          </div>
-        )}
+        {/* CTA superior */}
+        <LikeItBanner onClick={goToRequest} />
 
-        {/* Product grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {products.map((product, i) => (
+        {/* Grid de productos */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          {DEMO_PRODUCTS.map((product, i) => (
             <motion.div
               key={product.id}
               initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: '-30px' }}
+              transition={{ delay: (i % 2) * 0.05 }}
             >
-              <StoreProductCard
+              <ProductCard
                 product={product}
-                bsRate={bsRate}
-                phone={phone}
-                payments={payments}
-                onCardClick={() => setActiveProduct(product)}
-                onAddToCart={addToCart}
+                rate={rate}
+                onOpen={() => setActiveProduct(product)}
+                onOrder={() => setPendingOrder({ type: 'single', product })}
               />
             </motion.div>
           ))}
         </div>
 
-        {/* Bottom CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white rounded-3xl border border-[#F0E8E0] p-6 flex flex-col items-center gap-4 text-center"
-          style={{ boxShadow: '0 4px 24px rgba(255,107,0,0.08)' }}
-        >
-          <img src="/logo.png" alt="" className="w-16 h-16 object-contain"
-            style={{ filter: 'drop-shadow(0 6px 16px rgba(255,107,0,0.20))' }} />
-          <div>
-            <p className="font-display font-black text-lg text-[#0A0A0A]">¿Te gustó cómo se ve?</p>
-            <p className="text-sm text-[#737373] mt-1">
-              Tu tienda real incluye dominio .com, tasa BCV automática, panel admin y mucho más.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate('/pide-tu-demo')}
-            className="w-full h-14 rounded-2xl font-black text-white text-base flex items-center justify-center gap-2 transition-all active:scale-[0.97]"
-            style={{ background: '#25D366', boxShadow: '0 4px 20px rgba(37,211,102,0.30)' }}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
-              <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-            </svg>
-            Quiero mi tienda online
-          </button>
-          <p className="text-xs text-[#94A3B8]">Te respondemos por WhatsApp en minutos · Sin compromiso</p>
-        </motion.div>
+        {/* CTA inferior */}
+        <LikeItBanner onClick={goToRequest} />
 
-        <div className="text-center pb-4">
+        <div className="text-center pb-2">
           <p className="text-xs text-[#CCCCCC]">Demo creada con</p>
           <a href="/" className="font-display font-black text-sm text-[#FF6B00]">TiendaPana</a>
         </div>
       </div>
 
-      {/* Product modal */}
+      {/* Barra sticky mobile */}
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-[#F0E8E0] px-4 py-3"
+        style={{ boxShadow: '0 -2px 16px rgba(0,0,0,0.06)' }}>
+        {cartCount > 0 ? (
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setCartOpen(true)}
+              className="relative h-12 w-14 rounded-xl bg-[#FEF3E2] flex items-center justify-center text-[#FF6B00] active:scale-95 shrink-0">
+              <ShoppingCart size={20} />
+              <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#FF6B00] text-white text-[10px] font-black flex items-center justify-center">
+                {cartCount}
+              </span>
+            </button>
+            <GreenCTA onClick={goToRequest} />
+          </div>
+        ) : (
+          <GreenCTA onClick={goToRequest} />
+        )}
+      </div>
+
+      {/* Modal de bienvenida */}
+      <AnimatePresence>
+        {introOpen && (
+          <IntroModal onClose={() => setIntroOpen(false)} onCta={() => { setIntroOpen(false); goToRequest() }} />
+        )}
+      </AnimatePresence>
+
+      {/* Modal detalle producto */}
       <AnimatePresence>
         {activeProduct && (
-          <ProductModal
+          <ProductDetailModal
             product={activeProduct}
-            bsRate={bsRate}
-            payments={payments}
+            rate={rate}
+            payment={payment}
+            setPayment={setPayment}
             onClose={() => setActiveProduct(null)}
-            onAddToCart={addToCart}
+            onAddToCart={() => { addToCart(activeProduct); setActiveProduct(null); setCartOpen(true) }}
+            onOrder={() => { const p = activeProduct; setActiveProduct(null); setPendingOrder({ type: 'single', product: p }) }}
+            coupon={coupon}
+            couponInput={couponInput}
+            setCouponInput={setCouponInput}
+            couponError={couponError}
+            applyCoupon={applyCoupon}
           />
         )}
       </AnimatePresence>
 
-      {/* Cart panel */}
+      {/* Carrito */}
       <AnimatePresence>
         {cartOpen && (
-          <CartPanel
+          <CartDrawer
             items={cartItems}
-            bsRate={bsRate}
-            phone={phone}
+            rate={rate}
             onClose={() => setCartOpen(false)}
-            onRemove={removeFromCart}
-            onQtyChange={changeQty}
+            onInc={inc}
+            onDec={dec}
+            onRemove={remove}
+            onAdd={addToCart}
+            onClear={clearCart}
+            coupon={coupon}
+            couponInput={couponInput}
+            setCouponInput={setCouponInput}
+            couponError={couponError}
+            applyCoupon={applyCoupon}
+            payment={payment}
+            setPayment={setPayment}
+            onCheckout={() => { setCartOpen(false); setPendingOrder({ type: 'cart' }) }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Modal de número de WhatsApp */}
+      <AnimatePresence>
+        {pendingOrder && (
+          <PhoneModal
+            summary={orderSummary}
+            onClose={() => setPendingOrder(null)}
+            onConfirm={handlePhoneConfirm}
+            payment={payment}
+            setPayment={setPayment}
+            coupon={coupon}
+            couponInput={couponInput}
+            setCouponInput={setCouponInput}
+            couponError={couponError}
+            applyCoupon={applyCoupon}
           />
         )}
       </AnimatePresence>
