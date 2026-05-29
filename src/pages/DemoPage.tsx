@@ -387,12 +387,13 @@ function PhoneModal({
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} />
 
       <motion.div
-        className="relative w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-3xl z-10 flex flex-col"
-        style={{ maxHeight: '92dvh' }}
+        className="relative w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-3xl z-10 flex flex-col
+                   h-[100dvh] sm:h-auto sm:max-h-[92dvh]"
         initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 28, stiffness: 300 }}
       >
-        <div className="sticky top-0 z-20 bg-white px-5 pt-3 pb-2 flex items-center justify-between rounded-t-3xl">
+        {/* Header sticky — drag handle + cerrar */}
+        <div className="sticky top-0 z-20 bg-white px-5 pt-3 pb-2 flex items-center justify-between rounded-t-3xl shrink-0">
           <div className="w-10 h-1 bg-[#E5E7EB] rounded-full absolute left-1/2 -translate-x-1/2 top-2 sm:hidden" />
           <div className="w-8" />
           <button onClick={onClose} aria-label="Cerrar"
@@ -401,24 +402,23 @@ function PhoneModal({
           </button>
         </div>
 
-        <div className="overflow-y-auto px-5 pb-5 flex flex-col gap-4">
+        {/* Contenido scrollable */}
+        <div className="flex-1 overflow-y-auto px-5 py-2 flex flex-col gap-4">
           <div className="text-center">
-            <div className="w-14 h-14 rounded-full mx-auto flex items-center justify-center text-white mb-2"
+            <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center text-white mb-2"
               style={{ background: '#25D366' }}>
-              <WhatsAppIcon size={26} />
+              <WhatsAppIcon size={22} />
             </div>
             <h2 className="font-display font-black text-lg text-[#0A0A0A]">Coloca el número de tu tienda para la demo</h2>
             <p className="text-sm text-[#737373] mt-1">
-              Este sería el WhatsApp donde te llegarían los pedidos de tus clientes. Pon tu número y mira cómo te llega este pedido listo para cerrar la venta.
+              Pon tu número y mira cómo te llega el pedido listo para cerrar la venta.
             </p>
           </div>
 
           {summary}
 
-          {/* Método de pago dentro del checkout */}
           <PaymentMethods payment={payment} setPayment={setPayment} />
 
-          {/* Cupón dentro del checkout */}
           <CouponField
             coupon={coupon}
             couponInput={couponInput}
@@ -435,7 +435,7 @@ function PhoneModal({
               placeholder="0414-1234567"
               value={phone}
               onChange={e => { setPhone(e.target.value); setError('') }}
-              className="w-full h-13 py-3.5 px-4 rounded-xl border bg-white outline-none transition-colors"
+              className="w-full py-3.5 px-4 rounded-xl border bg-white outline-none transition-colors"
               style={{ fontSize: '16px', borderColor: error ? '#DC2626' : '#E5E7EB', color: '#0A0A0A' }}
               onFocus={e => { e.target.style.borderColor = '#FF6B00'; e.target.style.boxShadow = '0 0 0 3px rgba(255,107,0,0.12)' }}
               onBlur={e  => { e.target.style.borderColor = error ? '#DC2626' : '#E5E7EB'; e.target.style.boxShadow = 'none' }}
@@ -443,11 +443,14 @@ function PhoneModal({
             {error && <p className="text-xs text-red-500">{error}</p>}
             <p className="text-xs text-[#94A3B8]">Acepta 0414, 0416, 0422, 0424, 0426 — con o sin guiones</p>
           </div>
+        </div>
 
+        {/* Botón de Comprar — siempre visible, anclado al fondo */}
+        <div className="shrink-0 px-4 pt-3 pb-[max(20px,env(safe-area-inset-bottom))] border-t border-[#F0E8E0] bg-white">
           <button type="button" onClick={handleBuy}
             className="w-full rounded-2xl font-black text-white flex items-center justify-center gap-3 active:scale-[0.97] transition-transform"
-            style={{ height: '72px', fontSize: '20px', background: '#25D366', boxShadow: '0 6px 28px rgba(37,211,102,0.40)' }}>
-            <WhatsAppIcon size={26} />
+            style={{ height: '80px', fontSize: '22px', background: '#25D366', boxShadow: '0 8px 32px rgba(37,211,102,0.45)' }}>
+            <WhatsAppIcon size={28} />
             Comprar
           </button>
         </div>
