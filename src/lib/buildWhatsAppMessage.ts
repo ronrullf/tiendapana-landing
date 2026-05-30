@@ -3,8 +3,8 @@ export type DemoFormData = {
   negocio: string
   instagram: string
   cuandoLanzar: string
-  productos?: string
-  whatsappBusiness?: 'si' | 'no' | ''
+  productos: string
+  whatsappBusiness: 'si' | 'no'
   algoMas?: string
 }
 
@@ -27,10 +27,10 @@ export function buildWhatsAppMessage(data: DemoFormData): string {
     ``,
   ]
 
-  if (data.productos) lineas.push(`Tengo aproximadamente ${data.productos}.`)
-  if (data.whatsappBusiness === 'si')  lineas.push(`Ya tengo WhatsApp Business configurado.`)
-  if (data.whatsappBusiness === 'no')  lineas.push(`Aún no tengo WhatsApp Business.`)
-  if (data.algoMas?.trim())            lineas.push(`Algo más: ${data.algoMas.trim()}`)
+  lineas.push(`Tengo aproximadamente ${data.productos}.`)
+  if (data.whatsappBusiness === 'si') lineas.push(`Ya tengo WhatsApp Business configurado.`)
+  if (data.whatsappBusiness === 'no') lineas.push(`Aún no tengo WhatsApp Business.`)
+  if (data.algoMas?.trim())           lineas.push(`Algo más: ${data.algoMas.trim()}`)
 
   lineas.push(``, `¿Cuándo podemos hablar?`)
 

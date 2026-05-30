@@ -11,8 +11,8 @@ function renderWithPlaceholders(data: Partial<DemoFormData>): string {
     negocio:          data.negocio          || '[tu negocio]',
     instagram:        data.instagram        || '[tuusuario]',
     cuandoLanzar:     data.cuandoLanzar     || '[cuándo lanzar]',
-    productos:        data.productos,
-    whatsappBusiness: data.whatsappBusiness,
+    productos:        data.productos        || '[cantidad de productos]',
+    whatsappBusiness: (data.whatsappBusiness as 'si' | 'no') || 'no',
     algoMas:          data.algoMas,
   }
   return buildWhatsAppMessage(filled)

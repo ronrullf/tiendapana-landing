@@ -20,8 +20,8 @@ const schema = z.object({
                       .min(1, "Necesito tu usuario de Instagram pa' echarle un ojo")
                       .regex(/^[a-zA-Z0-9._]{1,30}$/, "Solo letras, números, puntos y guiones bajos"),
   cuandoLanzar:     z.string().min(1, 'Dime cuándo te gustaría lanzar'),
-  productos:        z.string().optional(),
-  whatsappBusiness: z.enum(['si', 'no', '']).optional(),
+  productos:        z.string().min(1, 'Dinos cuántos productos tienes aproximadamente'),
+  whatsappBusiness: z.union([z.literal('si'), z.literal('no')], { error: 'Dinos si ya usas WhatsApp Business' }),
   algoMas:          z.string().max(500).optional(),
 })
 
@@ -133,8 +133,7 @@ export default function DemoRequestPage() {
     resolver: zodResolver(schema),
     defaultValues: {
       nombre: '', negocio: '', instagram: '',
-      cuandoLanzar: '',
-      productos: '', whatsappBusiness: '', algoMas: '',
+      cuandoLanzar: '', productos: '', algoMas: '',
     },
   })
 
@@ -159,8 +158,8 @@ export default function DemoRequestPage() {
     const cleanData: DemoFormData = {
       ...data,
       instagram: data.instagram.replace(/^@/, ''),
-      whatsappBusiness: (data.whatsappBusiness as 'si' | 'no') || undefined,
-      productos: data.productos || undefined,
+      whatsappBusiness: data.whatsappBusiness,
+      productos: data.productos,
       algoMas:   data.algoMas  || undefined,
     }
 
@@ -177,14 +176,16 @@ export default function DemoRequestPage() {
   }
 
   const FIELD_LABELS: Partial<Record<keyof FormValues, string>> = {
-    nombre:       'tu nombre',
-    negocio:      'el tipo de negocio',
-    instagram:    'tu usuario de Instagram',
-    cuandoLanzar: 'cuándo quieres lanzar la tienda',
+    productos:        'cuántos productos tienes',
+    whatsappBusiness: 'si usas WhatsApp Business',
+    nombre:           'tu nombre',
+    negocio:          'el tipo de negocio',
+    instagram:        'tu usuario de Instagram',
+    cuandoLanzar:     'cuándo quieres lanzar la tienda',
   }
 
   const onError = (errs: typeof errors) => {
-    const order: (keyof FormValues)[] = ['nombre', 'negocio', 'instagram', 'cuandoLanzar']
+    const order: (keyof FormValues)[] = ['productos', 'whatsappBusiness', 'nombre', 'negocio', 'instagram', 'cuandoLanzar']
     const firstField = order.find(f => errs[f])
     if (firstField && FIELD_LABELS[firstField]) {
       showFieldToast(FIELD_LABELS[firstField]!)
@@ -244,8 +245,38 @@ export default function DemoRequestPage() {
                   onSubmit={handleSubmit(onSubmit, onError)}
                   noValidate
                 >
-                  {/* 1 — Nombre */}
+                  {/* 1 — Productos */}
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+                    <Label required>¿Cuántos productos vas a subir?</Label>
+                    <Controller
+                      control={control}
+                      name="productos"
+                      render={({ field }) => (
+                        <RadioCards options={PRODUCTOS_OPTS} value={field.value ?? ''} onChange={field.onChange} cols={1} />
+                      )}
+                    />
+                    <div data-field-error><FieldError message={errors.productos?.message} /></div>
+                  </motion.div>
+
+                  {/* 2 — WA Business */}
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                    <Label required>¿Ya usas WhatsApp Business?</Label>
+                    <Controller
+                      control={control}
+                      name="whatsappBusiness"
+                      render={({ field }) => (
+                        <RadioCards
+                          options={WA_OPTS}
+                          value={field.value ?? ''}
+                          onChange={field.onChange}
+                        />
+                      )}
+                    />
+                    <div data-field-error><FieldError message={errors.whatsappBusiness?.message} /></div>
+                  </motion.div>
+
+                  {/* 3 — Nombre */}
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
                     <Label required>Panita, ¿cómo te llamas?</Label>
                     <input
                       {...register('nombre')}
@@ -257,8 +288,8 @@ export default function DemoRequestPage() {
                     <div data-field-error><FieldError message={errors.nombre?.message} /></div>
                   </motion.div>
 
-                  {/* 2 — Negocio */}
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+                  {/* 4 — Negocio */}
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
                     <Label required>¿Qué tipo de negocio tienes?</Label>
                     <input
                       {...register('negocio')}
@@ -270,8 +301,8 @@ export default function DemoRequestPage() {
                     <div data-field-error><FieldError message={errors.negocio?.message} /></div>
                   </motion.div>
 
-                  {/* 3 — Instagram */}
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+                  {/* 5 — Instagram */}
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
                     <Label required>¿Cómo te consigo en Instagram?</Label>
                     <div className="flex items-center gap-0">
                       <span className="h-12 px-3 flex items-center rounded-l-xl border border-r-0 border-[#E5E7EB] bg-[#F1F5F9] text-[#64748B] font-semibold text-base select-none" style={{ borderRadius: '12px 0 0 12px' }}>
@@ -285,7 +316,6 @@ export default function DemoRequestPage() {
                         onBlur={e  => {
                           e.target.style.boxShadow = 'none'
                           if (!errors.instagram) e.target.style.borderColor = '#E5E7EB'
-                          // Strip @ on blur
                           if (e.target.value.startsWith('@')) {
                             e.target.value = e.target.value.replace(/^@/, '')
                           }
@@ -295,8 +325,8 @@ export default function DemoRequestPage() {
                     <div data-field-error><FieldError message={errors.instagram?.message} /></div>
                   </motion.div>
 
-                  {/* 4 — Cuándo lanzar */}
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+                  {/* 6 — Cuándo lanzar */}
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                     <Label required>¿Cuándo quieres lanzar tu tienda?</Label>
                     <p className="text-xs text-[#64748B] mb-2.5">Mientras más cerca, más rápido te respondemos.</p>
                     <Controller
@@ -307,34 +337,6 @@ export default function DemoRequestPage() {
                       )}
                     />
                     <div data-field-error><FieldError message={errors.cuandoLanzar?.message} /></div>
-                  </motion.div>
-
-                  {/* 6 — Productos (opcional) */}
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                    <Label>¿Cuántos productos vas a subir? <span className="text-[#94A3B8] font-normal">(opcional)</span></Label>
-                    <Controller
-                      control={control}
-                      name="productos"
-                      render={({ field }) => (
-                        <RadioCards options={PRODUCTOS_OPTS} value={field.value ?? ''} onChange={v => field.onChange(v === field.value ? '' : v)} cols={1} />
-                      )}
-                    />
-                  </motion.div>
-
-                  {/* 7 — WA Business (opcional) */}
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-                    <Label>¿Ya usas WhatsApp Business? <span className="text-[#94A3B8] font-normal">(opcional)</span></Label>
-                    <Controller
-                      control={control}
-                      name="whatsappBusiness"
-                      render={({ field }) => (
-                        <RadioCards
-                          options={WA_OPTS}
-                          value={field.value ?? ''}
-                          onChange={v => field.onChange(v === field.value ? '' : v)}
-                        />
-                      )}
-                    />
                   </motion.div>
 
                   {/* 8 — Algo más (opcional) */}
