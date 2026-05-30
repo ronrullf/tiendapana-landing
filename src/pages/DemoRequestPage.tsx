@@ -19,7 +19,6 @@ const schema = z.object({
   instagram:        z.string()
                       .min(1, "Necesito tu usuario de Instagram pa' echarle un ojo")
                       .regex(/^[a-zA-Z0-9._]{1,30}$/, "Solo letras, números, puntos y guiones bajos"),
-  facturacion:      z.string().min(1, 'Elige el rango que más se acerque a tu realidad'),
   cuandoLanzar:     z.string().min(1, 'Dime cuándo te gustaría lanzar'),
   productos:        z.string().optional(),
   whatsappBusiness: z.enum(['si', 'no', '']).optional(),
@@ -29,7 +28,6 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>
 
 // ─── Radio card options ────────────────────────────────────────────────────────
-const FACTURACION_OPTS = ['Menos de $500', '$500 - $1.500', '$1.500 - $3.000', 'Más de $3.000']
 const CUANDO_OPTS      = ['Cuanto antes, en 72 horas 🔥', 'En 1-2 semanas', 'Solo estoy explorando']
 const PRODUCTOS_OPTS   = ['1 - 15 productos', '15 - 50 productos', '50 - 200 productos', 'Más de 200 productos', 'Aún no sé']
 const WA_OPTS          = [{ value: 'si', label: 'Sí, ya lo uso' }, { value: 'no', label: 'No todavía' }]
@@ -135,7 +133,7 @@ export default function DemoRequestPage() {
     resolver: zodResolver(schema),
     defaultValues: {
       nombre: '', negocio: '', instagram: '',
-      facturacion: '', cuandoLanzar: '',
+      cuandoLanzar: '',
       productos: '', whatsappBusiness: '', algoMas: '',
     },
   })
@@ -182,12 +180,11 @@ export default function DemoRequestPage() {
     nombre:       'tu nombre',
     negocio:      'el tipo de negocio',
     instagram:    'tu usuario de Instagram',
-    facturacion:  'el rango de facturación mensual',
     cuandoLanzar: 'cuándo quieres lanzar la tienda',
   }
 
   const onError = (errs: typeof errors) => {
-    const order: (keyof FormValues)[] = ['nombre', 'negocio', 'instagram', 'facturacion', 'cuandoLanzar']
+    const order: (keyof FormValues)[] = ['nombre', 'negocio', 'instagram', 'cuandoLanzar']
     const firstField = order.find(f => errs[f])
     if (firstField && FIELD_LABELS[firstField]) {
       showFieldToast(FIELD_LABELS[firstField]!)
@@ -298,21 +295,7 @@ export default function DemoRequestPage() {
                     <div data-field-error><FieldError message={errors.instagram?.message} /></div>
                   </motion.div>
 
-                  {/* 4 — Facturación */}
-                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-                    <Label required>Sé honesto, ¿cuánto facturas al mes?</Label>
-                    <p className="text-xs text-[#64748B] mb-2.5">Esto nos ayuda a armar tu tienda según tu nivel. Cero juicio.</p>
-                    <Controller
-                      control={control}
-                      name="facturacion"
-                      render={({ field }) => (
-                        <RadioCards options={FACTURACION_OPTS} value={field.value} onChange={field.onChange} />
-                      )}
-                    />
-                    <div data-field-error><FieldError message={errors.facturacion?.message} /></div>
-                  </motion.div>
-
-                  {/* 5 — Cuándo lanzar */}
+                  {/* 4 — Cuándo lanzar */}
                   <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
                     <Label required>¿Cuándo quieres lanzar tu tienda?</Label>
                     <p className="text-xs text-[#64748B] mb-2.5">Mientras más cerca, más rápido te respondemos.</p>

@@ -10,7 +10,6 @@ function renderWithPlaceholders(data: Partial<DemoFormData>): string {
     nombre:           data.nombre           || '[tu nombre]',
     negocio:          data.negocio          || '[tu negocio]',
     instagram:        data.instagram        || '[tuusuario]',
-    facturacion:      data.facturacion      || '[facturación]',
     cuandoLanzar:     data.cuandoLanzar     || '[cuándo lanzar]',
     productos:        data.productos,
     whatsappBusiness: data.whatsappBusiness,

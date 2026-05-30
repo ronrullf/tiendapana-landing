@@ -2,7 +2,6 @@ export type DemoFormData = {
   nombre: string
   negocio: string
   instagram: string
-  facturacion: string
   cuandoLanzar: string
   productos?: string
   whatsappBusiness?: 'si' | 'no' | ''
@@ -24,7 +23,7 @@ export function buildWhatsAppMessage(data: DemoFormData): string {
     ``,
     `Soy ${data.nombre}. Tengo un negocio de ${data.negocio} y me consigues en Instagram como @${ig}.`,
     ``,
-    `Actualmente facturo ${data.facturacion} al mes y me gustaría lanzar mi tienda ${cuandoTexto}.`,
+    `Me gustaría lanzar mi tienda ${cuandoTexto}.`,
     ``,
   ]
 
