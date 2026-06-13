@@ -126,22 +126,17 @@ export function Hero() {
             </motion.span>
 
             <h1 className="font-display font-black text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-ink leading-[1.04]">
-              Vendes por Instagram. Pero estás dejando{' '}
-              <span className="text-brand-500 draw-underline">plata sobre la mesa</span>{' '}
-              todos los días.
+              <span className="text-brand-500">Vende x5 veces más</span>{' '}
+              <span className="underline decoration-brand-500 decoration-[3px] underline-offset-[6px]">esforzándote menos</span>{' '}
+              <br className="hidden sm:block" />
+              con una tienda online{' '}
+              <br className="hidden sm:block" />
+              en tu cuenta de instagram.
             </h1>
 
-            <p className="text-base md:text-lg lg:text-xl text-muted font-medium max-w-xl leading-relaxed">
-              Te montamos tu tienda online profesional en{' '}
-              <strong className="text-ink">72 horas</strong> — con tu{' '}
-              <strong className="text-ink">.com propio</strong>,{' '}
-              <strong className="text-ink">tasa BCV automática</strong> y{' '}
-              <strong className="text-ink">WhatsApp Business conectado</strong>.
-            </p>
-
             <div className="flex flex-col gap-3 items-center md:items-start">
-              <OrangeGlowButton size="lg" whatsapp pulse onClick={() => navigate('/demo')}>
-                Quiero mi demo →
+              <OrangeGlowButton size="lg" whatsapp pulse onClick={() => navigate('/pide-tu-demo')}>
+                Quiero mi tienda →
               </OrangeGlowButton>
               <p className="text-xs text-muted">
                 Sin compromiso · Te respondemos por WhatsApp en minutos
