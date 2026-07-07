@@ -27,15 +27,20 @@ export function Header() {
         {/* Logo */}
         <a href="/" className="flex items-center gap-2 shrink-0">
           <img src="/logo.png" alt="Tienda Pana" className="w-8 h-8 object-contain" />
-          <span className="font-display font-black text-lg text-ink tracking-tight">
+          <span className="font-display font-black text-lg text-ink tracking-tight hidden sm:inline">
             Tienda<span className="text-brand-500">Pana</span>
           </span>
         </a>
 
-        {/* CTA */}
-        <OrangeGlowButton size="sm" whatsapp onClick={() => navigate('/pide-tu-demo')}>
-          Quiero mi tienda
-        </OrangeGlowButton>
+        {/* CTAs */}
+        <div className="flex items-center gap-2 shrink-0">
+          <OrangeGlowButton size="sm" className="whitespace-nowrap" onClick={() => navigate('/portal')}>
+            Soy cliente
+          </OrangeGlowButton>
+          <OrangeGlowButton size="sm" whatsapp className="whitespace-nowrap" onClick={() => navigate('/pide-tu-demo')}>
+            Quiero mi tienda
+          </OrangeGlowButton>
+        </div>
       </div>
     </header>
   )

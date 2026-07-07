@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Eye, EyeOff, CheckCircle2, Clock, AlertCircle, Circle,
   ChevronDown, ExternalLink, MessageCircle, Play,
 } from 'lucide-react'
 import {
-  verifyAccess, getPhases, getMaterials, getTutorials,
+  verifyAccess, getPhases, getMaterials, getTutorials, youtubeThumb,
   type ClientPublic, type Phase, type Material, type Tutorial,
 } from '@/lib/portal'
 
@@ -36,20 +36,21 @@ const MATERIAL_EMOJI: Record<string, string> = {
 
 // ── Password gate ─────────────────────────────────────────────────────────────
 
-function PasswordGate({ slug, onSuccess }: { slug: string; onSuccess: (d: PortalData) => void }) {
-  const [code, setCode]       = useState('')
+function PasswordGate({ slug, initialCode, onSuccess }: { slug: string; initialCode?: string; onSuccess: (d: PortalData) => void }) {
+  const [code, setCode]       = useState(initialCode ?? '')
   const [show, setShow]       = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
+  const autoTried = useRef(false)
+  const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER as string
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const attempt = useCallback(async (codeValue: string) => {
     setError('')
     setLoading(true)
     try {
-      const client = await verifyAccess(slug, code)
+      const client = await verifyAccess(slug, codeValue)
       if (!client) {
-        setError('Código incorrecto. Revisa el mensaje que te envió Fernando.')
+        setError('Código incorrecto. Revisa el mensaje que te enviamos.')
         setLoading(false)
         return
       }
@@ -65,6 +66,18 @@ function PasswordGate({ slug, onSuccess }: { slug: string; onSuccess: (d: Portal
       setError('Error de conexión. Intenta de nuevo.')
       setLoading(false)
     }
+  }, [slug, onSuccess])
+
+  useEffect(() => {
+    if (initialCode && !autoTried.current) {
+      autoTried.current = true
+      attempt(initialCode)
+    }
+  }, [initialCode, attempt])
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    attempt(code)
   }
 
   return (
@@ -128,7 +141,15 @@ function PasswordGate({ slug, onSuccess }: { slug: string; onSuccess: (d: Portal
         </div>
 
         <p className="text-center text-xs text-muted mt-4">
-          ¿No tienes código? Escríbele a Fernando por WhatsApp.
+          ¿No tienes código?{' '}
+          <a
+            href={`https://wa.me/${WA_NUMBER}?text=${encodeURIComponent('Hola, necesito mi código para ingresar al portal 🙏')}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-bold text-brand-500 hover:underline"
+          >
+            Escríbenos por WhatsApp
+          </a>
         </p>
       </motion.div>
     </div>
@@ -382,25 +403,45 @@ function ClientDashboard({ data }: { data: PortalData }) {
               <p className="text-xs text-muted mt-1">Esto ocurre en la Fase 6 — Lanzamiento</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
-              {visibleTutorials.map(t => (
-                <div key={t.id} className="bg-white border border-[#E5E7EB] rounded-xl p-5">
-                  <p className="font-semibold text-ink text-sm mb-1">{t.titulo}</p>
-                  {t.descripcion && (
-                    <p className="text-xs text-muted mb-3">{t.descripcion}</p>
-                  )}
-                  {t.video_url && (
-                    <a
-                      href={t.video_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-500 hover:underline"
-                    >
-                      <Play size={13} /> Ver tutorial
-                    </a>
-                  )}
-                </div>
-              ))}
+            <div className="grid sm:grid-cols-2 gap-3">
+              {visibleTutorials.map(t => {
+                const thumb = youtubeThumb(t.video_url)
+                return (
+                  <div key={t.id} className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden">
+                    {thumb && t.video_url && (
+                      <a href={t.video_url} target="_blank" rel="noopener noreferrer" className="block relative group">
+                        <img
+                          src={thumb}
+                          alt={t.titulo}
+                          className="w-full aspect-video object-cover"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors">
+                          <div className="w-12 h-12 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
+                            <Play size={20} className="text-brand-500 ml-0.5" fill="currentColor" />
+                          </div>
+                        </div>
+                      </a>
+                    )}
+                    <div className="p-4">
+                      <p className="font-semibold text-ink text-sm mb-1">{t.titulo}</p>
+                      {t.descripcion && (
+                        <p className="text-xs text-muted mb-2">{t.descripcion}</p>
+                      )}
+                      {t.video_url && (
+                        <a
+                          href={t.video_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-sm font-bold text-brand-500 hover:underline"
+                        >
+                          <Play size={13} /> Ver tutorial
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
@@ -410,7 +451,7 @@ function ClientDashboard({ data }: { data: PortalData }) {
           <div className="flex-1">
             <p className="font-display font-black text-base text-ink mb-0.5">¿Tienes dudas?</p>
             <p className="text-sm text-muted">
-              Escríbeme por WhatsApp y te respondo en menos de 12 horas hábiles.
+              Escríbenos por WhatsApp y te respondemos en menos de 12 horas hábiles.
             </p>
           </div>
           {WA_NUMBER && (
@@ -421,7 +462,7 @@ function ClientDashboard({ data }: { data: PortalData }) {
               className="flex items-center gap-2 h-11 px-5 rounded-xl font-bold text-white text-sm shrink-0"
               style={{ background: '#25D366', boxShadow: '0 4px 14px rgba(37,211,102,0.3)' }}
             >
-              <MessageCircle size={16} /> Escribir a Fernando
+              <MessageCircle size={16} /> Escríbenos por WhatsApp
             </a>
           )}
         </div>
@@ -438,7 +479,9 @@ function ClientDashboard({ data }: { data: PortalData }) {
 
 export default function ClientPortalPage() {
   const { slug } = useParams<{ slug: string }>()
+  const [searchParams] = useSearchParams()
   const [data, setData] = useState<PortalData | null>(null)
+  const codeFromUrl = searchParams.get('code') ?? undefined
 
   useEffect(() => {
     if (!slug) return
@@ -458,7 +501,7 @@ export default function ClientPortalPage() {
         </motion.div>
       ) : (
         <motion.div key="gate" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-          <PasswordGate slug={slug} onSuccess={setData} />
+          <PasswordGate slug={slug} initialCode={codeFromUrl} onSuccess={setData} />
         </motion.div>
       )}
     </AnimatePresence>

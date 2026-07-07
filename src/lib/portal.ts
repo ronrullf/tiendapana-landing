@@ -61,6 +61,13 @@ export async function verifyAccess(slug: string, code: string): Promise<ClientPu
   return data[0] as ClientPublic
 }
 
+export async function findClientByCode(code: string): Promise<(ClientPublic & { slug: string }) | null> {
+  const { data, error } = await getSupabase()
+    .rpc('get_client_by_code', { p_code: code.trim() })
+  if (error || !data?.length) return null
+  return data[0] as ClientPublic & { slug: string }
+}
+
 export async function getPhases(clientId: string): Promise<Phase[]> {
   const { data } = await getSupabase()
     .from('project_phases')
@@ -240,4 +247,15 @@ export function toSlug(nombre: string): string {
 
 export function generateCode(): string {
   return Math.random().toString(36).slice(2, 8).toUpperCase()
+}
+
+export function youtubeThumb(url: string | null): string | null {
+  if (!url) return null
+  const m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([\w-]{11})/)
+  return m ? `https://img.youtube.com/vi/${m[1]}/mqdefault.jpg` : null
+}
+
+export function buildPortalShareText(slug: string, accessCode: string): string {
+  const link = `${window.location.origin}/cliente/${slug}`
+  return `¡Hola! 👋 Este es tu portal de proyecto TiendaPana:\n\n${link}\n\nTu código de acceso: ${accessCode}\n\nAhí puedes ver el progreso de tu tienda en tiempo real.`
 }

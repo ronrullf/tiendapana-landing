@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LogOut, Plus, Edit2, Trash2, ChevronLeft, ExternalLink,
-  Eye, EyeOff, Upload, X,
+  Eye, EyeOff, Upload, X, Copy, Check,
 } from 'lucide-react'
 import {
   adminLogin, adminLogout, getAdminSession,
@@ -12,7 +12,7 @@ import {
   addTutorial, updateTutorial, deleteTutorial,
   uploadMaterialFile,
   createDefaultPhases, createDefaultMaterials,
-  toSlug, generateCode,
+  toSlug, generateCode, youtubeThumb, buildPortalShareText,
   type Client, type Phase, type Material, type Tutorial,
 } from '@/lib/portal'
 
@@ -56,7 +56,7 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-5 bg-[#0F172A]">
+    <div className="min-h-screen flex items-center justify-center px-5 bg-white">
       <motion.div
         className="w-full max-w-sm"
         initial={{ opacity: 0, y: 20 }}
@@ -66,14 +66,14 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
         <div className="flex justify-center mb-8">
           <div className="flex items-center gap-2.5">
             <img src="/logo.png" alt="Tienda Pana" className="w-10 h-10 object-contain" />
-            <span className="font-display font-black text-xl text-white">
+            <span className="font-display font-black text-xl text-ink">
               Tienda<span className="text-brand-500">Pana</span>
               <span className="ml-2 text-xs font-bold bg-brand-500 text-white px-2 py-0.5 rounded-full align-middle">ADMIN</span>
             </span>
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white rounded-2xl border border-[#F1F5F9] p-8" style={{ boxShadow: '0 8px 32px rgba(15,23,42,0.08)' }}>
           <h1 className="font-display font-black text-xl text-ink mb-5">Panel de administración</h1>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <input
@@ -130,6 +130,13 @@ function ClientCard({
     phases.find(p => p.estado === 'bloqueado')
   const style = currentPhase ? ESTADO_STYLE[currentPhase.estado] : ESTADO_STYLE.pendiente
   const completed = phases.filter(p => p.estado === 'completado').length
+  const [copied, setCopied] = useState(false)
+
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(buildPortalShareText(client.slug, client.access_code))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
     <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 flex flex-col gap-3">
@@ -139,12 +146,19 @@ function ClientCard({
           <p className="text-xs text-muted font-mono">/{client.slug}</p>
         </div>
         <div className="flex gap-1.5">
+          <button
+            onClick={copyLink}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E5E7EB] text-muted hover:text-brand-500 hover:border-brand-300 transition-colors"
+            title="Copiar enlace + código para el cliente"
+          >
+            {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+          </button>
           <a
             href={`/cliente/${client.slug}`}
             target="_blank"
             rel="noopener noreferrer"
             className="w-8 h-8 flex items-center justify-center rounded-lg border border-[#E5E7EB] text-muted hover:text-brand-500 hover:border-brand-300 transition-colors"
-            title="Ver portal del cliente"
+            title="Ver portal como lo ve el cliente"
           >
             <ExternalLink size={14} />
           </a>
@@ -237,11 +251,6 @@ function PhasesTab({ phases, onUpdate }: { phases: Phase[]; onUpdate: (id: strin
     <div className="flex flex-col gap-2">
       {phases.map(p => {
         const style = ESTADO_STYLE[p.estado]
-        const cycleNext = () => {
-          const idx = ESTADO_CYCLE.indexOf(p.estado)
-          const next = ESTADO_CYCLE[(idx + 1) % ESTADO_CYCLE.length]
-          onUpdate(p.id, next)
-        }
         return (
           <div key={p.id} className="flex items-center gap-3 bg-white border border-[#E5E7EB] rounded-xl px-4 py-3">
             <span className="text-xs font-bold text-muted w-5 shrink-0">{p.fase_num}</span>
@@ -249,18 +258,20 @@ function PhasesTab({ phases, onUpdate }: { phases: Phase[]; onUpdate: (id: strin
               <p className="text-sm font-semibold text-ink">{p.titulo}</p>
               {p.subtitulo && <p className="text-xs text-muted">{p.subtitulo}</p>}
             </div>
-            <button
-              onClick={cycleNext}
-              className="text-[11px] font-bold px-3 py-1.5 rounded-full transition-all hover:opacity-80 active:scale-95 shrink-0"
-              style={{ background: style.bg, color: style.color }}
-              title="Clic para cambiar estado"
+            <select
+              value={p.estado}
+              onChange={e => onUpdate(p.id, e.target.value as Phase['estado'])}
+              className="text-xs font-bold px-3 py-2 rounded-xl border cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-brand-200"
+              style={{ background: style.bg, color: style.color, borderColor: `${style.color}55` }}
             >
-              {style.label}
-            </button>
+              {ESTADO_CYCLE.map(es => (
+                <option key={es} value={es}>{ESTADO_STYLE[es].label}</option>
+              ))}
+            </select>
           </div>
         )
       })}
-      <p className="text-xs text-muted text-center pt-1">Clic en el estado para cambiarlo → cicla entre pendiente / en progreso / completado / bloqueado</p>
+      <p className="text-xs text-muted text-center pt-1">Selecciona el estado de cada fase — el cliente lo ve al instante en su portal</p>
     </div>
   )
 }
@@ -285,8 +296,9 @@ function MaterialsTab({
     try {
       const url = await uploadMaterialFile(clientId, mat.tipo, file)
       onUpdate(mat.id, { archivo_url: url, recibido: true })
-    } catch {
-      alert('Error al subir el archivo. Verifica que el bucket "client-files" existe en Supabase Storage.')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      alert(`Error al subir el archivo: ${msg}\n\nSi dice "row-level security" o "policy", falta correr las políticas del bucket en el SQL Editor de Supabase.`)
     } finally {
       setUploading(null)
     }
@@ -328,7 +340,6 @@ function MaterialsTab({
           <div className="flex items-center gap-2">
             <input
               type="file"
-              accept="image/*,.pdf"
               className="hidden"
               ref={el => { fileInputRefs.current[mat.id] = el }}
               onChange={e => {
@@ -398,12 +409,22 @@ function TutorialsTab({
       {tutorials.map(t => (
         <div key={t.id} className="bg-white border border-[#E5E7EB] rounded-xl p-5 flex flex-col gap-3">
           <div className="flex items-start gap-3">
+            {youtubeThumb(t.video_url) && (
+              <a href={t.video_url!} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                <img
+                  src={youtubeThumb(t.video_url)!}
+                  alt={t.titulo}
+                  className="w-28 h-16 rounded-lg object-cover border border-[#E5E7EB]"
+                  loading="lazy"
+                />
+              </a>
+            )}
             <div className="flex-1 min-w-0">
               <p className="font-semibold text-ink text-sm">{t.titulo}</p>
               {t.descripcion && <p className="text-xs text-muted mt-0.5">{t.descripcion}</p>}
               {t.video_url && (
                 <a href={t.video_url} target="_blank" rel="noopener noreferrer"
-                  className="text-xs text-brand-500 hover:underline mt-1 inline-block">
+                  className="text-xs text-brand-500 hover:underline mt-1 inline-block break-all">
                   {t.video_url}
                 </a>
               )}
@@ -497,6 +518,13 @@ function ClientEditor({
   const [materials, setMaterials] = useState<Material[]>([])
   const [tutorials, setTutorials] = useState<Tutorial[]>([])
   const [clientId, setClientId] = useState<string | null>(client?.id ?? null)
+  const [copied, setCopied] = useState(false)
+
+  const copyShareLink = async () => {
+    await navigator.clipboard.writeText(buildPortalShareText(form.slug, form.access_code))
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   useEffect(() => {
     if (clientId) {
@@ -616,14 +644,24 @@ function ClientEditor({
           {isNew ? 'Nuevo cliente' : client!.nombre}
         </h2>
         {!isNew && (
-          <a
-            href={`/cliente/${form.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-auto flex items-center gap-1 text-xs text-brand-500 hover:underline"
-          >
-            Ver portal <ExternalLink size={12} />
-          </a>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={copyShareLink}
+              className="flex items-center gap-1.5 h-9 px-3 rounded-xl border border-[#E5E7EB] text-xs font-bold text-muted hover:text-brand-500 hover:border-brand-300 transition-colors"
+            >
+              {copied ? <Check size={13} className="text-green-500" /> : <Copy size={13} />}
+              {copied ? '¡Copiado!' : 'Copiar enlace'}
+            </button>
+            <a
+              href={`/cliente/${form.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-xs font-bold text-white transition-opacity hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #FF7A33 0%, #FF6B00 100%)' }}
+            >
+              <ExternalLink size={13} /> Ver como cliente
+            </a>
+          </div>
         )}
       </div>
 
@@ -832,7 +870,7 @@ export default function AdminPage() {
 
   if (checking) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0F172A]">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="w-6 h-6 rounded-full border-2 border-brand-500 border-t-transparent animate-spin" />
       </div>
     )
