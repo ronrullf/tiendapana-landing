@@ -2,6 +2,8 @@ import { getSupabase } from './supabase'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+export type TiendaEstado = 'comprado' | 'en_desarrollo' | 'terminado'
+
 export type ClientPublic = {
   id: string
   nombre: string
@@ -11,6 +13,7 @@ export type ClientPublic = {
   store_url: string | null
   whatsapp: string | null
   fase_actual: number
+  tienda_estado: TiendaEstado | null
 }
 
 export type Client = ClientPublic & {
@@ -200,6 +203,19 @@ export async function uploadMaterialFile(clientId: string, tipo: string, file: F
     .from('client-files')
     .getPublicUrl(path)
   return data.publicUrl
+}
+
+export async function deleteMaterialFile(publicUrl: string) {
+  const marker = '/object/public/client-files/'
+  const idx = publicUrl.indexOf(marker)
+  if (idx === -1) return
+  const path = decodeURIComponent(publicUrl.slice(idx + marker.length))
+  await getSupabase().storage.from('client-files').remove([path])
+}
+
+export function isImageUrl(url: string | null): boolean {
+  if (!url) return false
+  return /\.(png|jpe?g|gif|webp|svg|avif|bmp)($|\?)/i.test(url)
 }
 
 // ── Defaults ──────────────────────────────────────────────────────────────────

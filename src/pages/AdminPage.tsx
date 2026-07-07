@@ -13,7 +13,8 @@ import {
   uploadMaterialFile,
   createDefaultPhases, createDefaultMaterials,
   toSlug, generateCode, youtubeThumb, buildPortalShareText,
-  type Client, type Phase, type Material, type Tutorial,
+  isImageUrl, deleteMaterialFile,
+  type Client, type Phase, type Material, type Tutorial, type TiendaEstado,
 } from '@/lib/portal'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -221,12 +222,14 @@ type ClientFormData = {
   whatsapp: string
   access_code: string
   fase_actual: number
+  tienda_estado: string
 }
 
 function blankForm(): ClientFormData {
   return {
     nombre: '', slug: '', plan: '', fecha_inicio: '', fecha_entrega: '',
     store_url: '', whatsapp: '', access_code: generateCode(), fase_actual: 1,
+    tienda_estado: '',
   }
 }
 
@@ -241,16 +244,63 @@ function fromClient(c: Client): ClientFormData {
     whatsapp:      c.whatsapp ?? '',
     access_code:   c.access_code,
     fase_actual:   c.fase_actual,
+    tienda_estado: c.tienda_estado ?? '',
   }
+}
+
+const TIENDA_OPTIONS: { value: string; label: string }[] = [
+  { value: '',              label: '— Dominio aún no comprado —' },
+  { value: 'comprado',      label: '🛒 Comprado' },
+  { value: 'en_desarrollo', label: '🛠️ En desarrollo' },
+  { value: 'terminado',     label: '🚀 Terminado y funcionando' },
+]
+
+function SaveBar({ dirty, saving, onSave }: { dirty: boolean; saving: boolean; onSave: () => void }) {
+  return (
+    <div className="flex items-center gap-3 pt-2">
+      <button
+        onClick={onSave}
+        disabled={!dirty || saving}
+        className="h-11 px-6 rounded-xl font-bold text-white text-sm disabled:opacity-40 transition-all"
+        style={{ background: 'linear-gradient(135deg, #FF7A33 0%, #FF6B00 100%)' }}
+      >
+        {saving ? 'Guardando...' : 'Guardar cambios'}
+      </button>
+      {dirty && !saving && (
+        <p className="text-xs text-brand-500 font-medium">Tienes cambios sin guardar</p>
+      )}
+    </div>
+  )
 }
 
 // ── Phases tab ────────────────────────────────────────────────────────────────
 
-function PhasesTab({ phases, onUpdate }: { phases: Phase[]; onUpdate: (id: string, estado: Phase['estado']) => void }) {
+function PhasesTab({ phases, onSaved }: { phases: Phase[]; onSaved: (updated: Phase[]) => void }) {
+  const [draft, setDraft]   = useState<Record<string, Phase['estado']>>({})
+  const [saving, setSaving] = useState(false)
+
+  const estadoOf = (p: Phase) => draft[p.id] ?? p.estado
+  const dirty = phases.some(p => draft[p.id] !== undefined && draft[p.id] !== p.estado)
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const changed = phases.filter(p => draft[p.id] !== undefined && draft[p.id] !== p.estado)
+      await Promise.all(changed.map(p => updatePhaseEstado(p.id, draft[p.id])))
+      onSaved(phases.map(p => draft[p.id] !== undefined ? { ...p, estado: draft[p.id] } : p))
+      setDraft({})
+    } catch (err: unknown) {
+      alert('Error al guardar: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-2">
       {phases.map(p => {
-        const style = ESTADO_STYLE[p.estado]
+        const estado = estadoOf(p)
+        const style = ESTADO_STYLE[estado]
         return (
           <div key={p.id} className="flex items-center gap-3 bg-white border border-[#E5E7EB] rounded-xl px-4 py-3">
             <span className="text-xs font-bold text-muted w-5 shrink-0">{p.fase_num}</span>
@@ -259,8 +309,8 @@ function PhasesTab({ phases, onUpdate }: { phases: Phase[]; onUpdate: (id: strin
               {p.subtitulo && <p className="text-xs text-muted">{p.subtitulo}</p>}
             </div>
             <select
-              value={p.estado}
-              onChange={e => onUpdate(p.id, e.target.value as Phase['estado'])}
+              value={estado}
+              onChange={e => setDraft(d => ({ ...d, [p.id]: e.target.value as Phase['estado'] }))}
               className="text-xs font-bold px-3 py-2 rounded-xl border cursor-pointer shrink-0 focus:outline-none focus:ring-2 focus:ring-brand-200"
               style={{ background: style.bg, color: style.color, borderColor: `${style.color}55` }}
             >
@@ -271,7 +321,7 @@ function PhasesTab({ phases, onUpdate }: { phases: Phase[]; onUpdate: (id: strin
           </div>
         )
       })}
-      <p className="text-xs text-muted text-center pt-1">Selecciona el estado de cada fase — el cliente lo ve al instante en su portal</p>
+      <SaveBar dirty={dirty} saving={saving} onSave={save} />
     </div>
   )
 }
@@ -285,23 +335,53 @@ function MaterialsTab({
 }: {
   materials: Material[]
   clientId: string
-  onUpdate: (id: string, updates: Partial<Material>) => void
+  onUpdate: (id: string, updates: Partial<Material>) => Promise<void>
 }) {
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
   const [uploading, setUploading] = useState<string | null>(null)
-  const [editNotes, setEditNotes] = useState<Record<string, string>>({})
+  const [draft, setDraft]   = useState<Record<string, { recibido?: boolean; notas?: string }>>({})
+  const [saving, setSaving] = useState(false)
+
+  const recibidoOf = (m: Material) => draft[m.id]?.recibido ?? m.recibido
+  const notasOf    = (m: Material) => draft[m.id]?.notas ?? m.notas ?? ''
+
+  const dirty = materials.some(m => {
+    const d = draft[m.id]
+    if (!d) return false
+    return (d.recibido !== undefined && d.recibido !== m.recibido) ||
+           (d.notas !== undefined && d.notas !== (m.notas ?? ''))
+  })
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const changed = materials.filter(m => draft[m.id])
+      await Promise.all(changed.map(m => onUpdate(m.id, draft[m.id])))
+      setDraft({})
+    } catch (err: unknown) {
+      alert('Error al guardar: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const handleFileUpload = async (mat: Material, file: File) => {
     setUploading(mat.id)
     try {
       const url = await uploadMaterialFile(clientId, mat.tipo, file)
-      onUpdate(mat.id, { archivo_url: url, recibido: true })
+      await onUpdate(mat.id, { archivo_url: url, recibido: true })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
       alert(`Error al subir el archivo: ${msg}\n\nSi dice "row-level security" o "policy", falta correr las políticas del bucket en el SQL Editor de Supabase.`)
     } finally {
       setUploading(null)
     }
+  }
+
+  const handleDeleteFile = async (mat: Material) => {
+    if (!confirm('¿Eliminar este archivo?')) return
+    try { await deleteMaterialFile(mat.archivo_url!) } catch {}
+    await onUpdate(mat.id, { archivo_url: null })
   }
 
   return (
@@ -313,10 +393,10 @@ function MaterialsTab({
             <p className="font-semibold text-ink text-sm flex-1">{mat.titulo}</p>
             <label className="flex items-center gap-2 cursor-pointer">
               <div
-                onClick={() => onUpdate(mat.id, { recibido: !mat.recibido })}
-                className={`w-10 h-6 rounded-full transition-colors duration-200 flex items-center ${mat.recibido ? 'bg-green-500' : 'bg-[#E5E7EB]'}`}
+                onClick={() => setDraft(d => ({ ...d, [mat.id]: { ...d[mat.id], recibido: !recibidoOf(mat) } }))}
+                className={`w-10 h-6 rounded-full transition-colors duration-200 flex items-center ${recibidoOf(mat) ? 'bg-green-500' : 'bg-[#E5E7EB]'}`}
               >
-                <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 mx-1 ${mat.recibido ? 'translate-x-4' : 'translate-x-0'}`} />
+                <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 mx-1 ${recibidoOf(mat) ? 'translate-x-4' : 'translate-x-0'}`} />
               </div>
               <span className="text-xs font-medium text-muted">Recibido</span>
             </label>
@@ -325,49 +405,75 @@ function MaterialsTab({
           {/* Notes */}
           <textarea
             rows={2}
-            value={editNotes[mat.id] ?? mat.notas ?? ''}
-            onChange={e => setEditNotes(prev => ({ ...prev, [mat.id]: e.target.value }))}
-            onBlur={() => {
-              if (editNotes[mat.id] !== undefined) {
-                onUpdate(mat.id, { notas: editNotes[mat.id] })
-              }
-            }}
+            value={notasOf(mat)}
+            onChange={e => setDraft(d => ({ ...d, [mat.id]: { ...d[mat.id], notas: e.target.value } }))}
             placeholder="Notas (ej: logo recibido sin fondo)"
             className="w-full px-3 py-2 text-sm rounded-xl border border-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-brand-200 focus:border-brand-500 resize-none bg-[#FAFAFA]"
           />
 
-          {/* File */}
-          <div className="flex items-center gap-2">
-            <input
-              type="file"
-              className="hidden"
-              ref={el => { fileInputRefs.current[mat.id] = el }}
-              onChange={e => {
-                const file = e.target.files?.[0]
-                if (file) handleFileUpload(mat, file)
-              }}
-            />
+          {/* File preview + actions */}
+          <input
+            type="file"
+            className="hidden"
+            ref={el => { fileInputRefs.current[mat.id] = el }}
+            onChange={e => {
+              const file = e.target.files?.[0]
+              if (file) handleFileUpload(mat, file)
+              e.target.value = ''
+            }}
+          />
+
+          {mat.archivo_url ? (
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-[#FAFAFA] border border-[#F1F5F9]">
+              {isImageUrl(mat.archivo_url) ? (
+                <a href={mat.archivo_url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                  <img
+                    src={mat.archivo_url}
+                    alt={mat.titulo}
+                    className="w-16 h-16 object-contain rounded-lg border border-[#E5E7EB] bg-white"
+                  />
+                </a>
+              ) : (
+                <a
+                  href={mat.archivo_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm font-medium text-ink shrink-0"
+                >
+                  <span className="text-2xl">📄</span>
+                  <span className="text-brand-500 hover:underline text-xs font-bold">Ver archivo</span>
+                </a>
+              )}
+              <div className="ml-auto flex gap-2 shrink-0">
+                <button
+                  onClick={() => fileInputRefs.current[mat.id]?.click()}
+                  disabled={uploading === mat.id}
+                  className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl border border-[#E5E7EB] bg-white hover:border-brand-300 hover:text-brand-500 transition-colors disabled:opacity-50"
+                >
+                  <Upload size={13} />
+                  {uploading === mat.id ? 'Subiendo...' : 'Reemplazar'}
+                </button>
+                <button
+                  onClick={() => handleDeleteFile(mat)}
+                  className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl border border-[#E5E7EB] bg-white text-muted hover:border-red-300 hover:text-red-500 transition-colors"
+                >
+                  <Trash2 size={13} /> Eliminar
+                </button>
+              </div>
+            </div>
+          ) : (
             <button
               onClick={() => fileInputRefs.current[mat.id]?.click()}
               disabled={uploading === mat.id}
-              className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl border border-[#E5E7EB] hover:border-brand-300 hover:text-brand-500 transition-colors disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-xl border-2 border-dashed border-[#E5E7EB] text-muted hover:border-brand-300 hover:text-brand-500 transition-colors disabled:opacity-50"
             >
               <Upload size={13} />
-              {uploading === mat.id ? 'Subiendo...' : 'Subir archivo'}
+              {uploading === mat.id ? 'Subiendo...' : 'Subir archivo (imagen, PDF, Excel, CSV...)'}
             </button>
-            {mat.archivo_url && (
-              <a
-                href={mat.archivo_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-xs text-brand-500 font-medium hover:underline"
-              >
-                <ExternalLink size={12} /> Ver archivo
-              </a>
-            )}
-          </div>
+          )}
         </div>
       ))}
+      <SaveBar dirty={dirty} saving={saving} onSave={save} />
     </div>
   )
 }
@@ -389,6 +495,24 @@ function TutorialsTab({
 }) {
   const [form, setForm] = useState({ titulo: '', video_url: '', descripcion: '' })
   const [adding, setAdding] = useState(false)
+  const [draft, setDraft]   = useState<Record<string, boolean>>({})
+  const [saving, setSaving] = useState(false)
+
+  const visibleOf = (t: Tutorial) => draft[t.id] ?? t.visible
+  const dirty = tutorials.some(t => draft[t.id] !== undefined && draft[t.id] !== t.visible)
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const changed = tutorials.filter(t => draft[t.id] !== undefined && draft[t.id] !== t.visible)
+      await Promise.all(changed.map(t => onUpdate(t.id, { visible: draft[t.id] })))
+      setDraft({})
+    } catch (err: unknown) {
+      alert('Error al guardar: ' + (err instanceof Error ? err.message : String(err)))
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const handleAdd = () => {
     if (!form.titulo.trim()) return
@@ -432,12 +556,12 @@ function TutorialsTab({
             <div className="flex items-center gap-2 shrink-0">
               <label className="flex items-center gap-1.5 cursor-pointer">
                 <div
-                  onClick={() => onUpdate(t.id, { visible: !t.visible })}
-                  className={`w-9 h-5 rounded-full transition-colors duration-200 flex items-center ${t.visible ? 'bg-green-500' : 'bg-[#E5E7EB]'}`}
+                  onClick={() => setDraft(d => ({ ...d, [t.id]: !visibleOf(t) }))}
+                  className={`w-9 h-5 rounded-full transition-colors duration-200 flex items-center ${visibleOf(t) ? 'bg-green-500' : 'bg-[#E5E7EB]'}`}
                 >
-                  <div className={`w-3.5 h-3.5 rounded-full bg-white shadow transition-transform duration-200 mx-0.5 ${t.visible ? 'translate-x-4' : 'translate-x-0'}`} />
+                  <div className={`w-3.5 h-3.5 rounded-full bg-white shadow transition-transform duration-200 mx-0.5 ${visibleOf(t) ? 'translate-x-4' : 'translate-x-0'}`} />
                 </div>
-                <span className="text-[11px] text-muted">{t.visible ? 'Visible' : 'Oculto'}</span>
+                <span className="text-[11px] text-muted">{visibleOf(t) ? 'Visible' : 'Oculto'}</span>
               </label>
               <button onClick={() => onDelete(t.id)}
                 className="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-red-500 hover:bg-red-50 transition-colors">
@@ -493,6 +617,7 @@ function TutorialsTab({
           <Plus size={15} /> Añadir tutorial
         </button>
       )}
+      <SaveBar dirty={dirty} saving={saving} onSave={save} />
     </div>
   )
 }
@@ -566,6 +691,7 @@ function ClientEditor({
           whatsapp:      form.whatsapp.trim() || null,
           access_code:   form.access_code.trim(),
           fase_actual:   1,
+          tienda_estado: (form.tienda_estado || null) as TiendaEstado | null,
         })
         await Promise.all([
           createDefaultPhases(created.id),
@@ -587,6 +713,7 @@ function ClientEditor({
           store_url:     form.store_url.trim() || null,
           whatsapp:      form.whatsapp.trim() || null,
           access_code:   form.access_code.trim(),
+          tienda_estado: (form.tienda_estado || null) as TiendaEstado | null,
         })
         alert('Guardado.')
       }
@@ -596,11 +723,6 @@ function ClientEditor({
     } finally {
       setSaving(false)
     }
-  }
-
-  const handlePhaseUpdate = async (id: string, estado: Phase['estado']) => {
-    await updatePhaseEstado(id, estado)
-    setPhases(prev => prev.map(p => p.id === id ? { ...p, estado } : p))
   }
 
   const handleMaterialUpdate = async (id: string, updates: Partial<Material>) => {
@@ -775,6 +897,19 @@ function ClientEditor({
                 />
               </div>
               <div>
+                <label className="text-xs font-semibold text-muted uppercase tracking-wide block mb-1.5">Estado de la tienda (dominio)</label>
+                <select
+                  value={form.tienda_estado}
+                  onChange={e => setForm(f => ({ ...f, tienda_estado: e.target.value }))}
+                  className={`${inputCls()} cursor-pointer`}
+                >
+                  {TIENDA_OPTIONS.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-muted mt-1">El cliente lo ve en la sección "Tu tienda" de su portal</p>
+              </div>
+              <div>
                 <label className="text-xs font-semibold text-muted uppercase tracking-wide block mb-1.5">WhatsApp Business</label>
                 <input
                   value={form.whatsapp}
@@ -795,7 +930,7 @@ function ClientEditor({
           )}
 
           {tab === 'fases' && clientId && (
-            <PhasesTab phases={phases} onUpdate={handlePhaseUpdate} />
+            <PhasesTab phases={phases} onSaved={setPhases} />
           )}
 
           {tab === 'material' && clientId && (

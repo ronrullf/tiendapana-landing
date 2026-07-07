@@ -6,7 +6,7 @@ import {
   ChevronDown, ExternalLink, MessageCircle, Play,
 } from 'lucide-react'
 import {
-  verifyAccess, getPhases, getMaterials, getTutorials, youtubeThumb,
+  verifyAccess, getPhases, getMaterials, getTutorials, youtubeThumb, isImageUrl,
   type ClientPublic, type Phase, type Material, type Tutorial,
 } from '@/lib/portal'
 
@@ -32,6 +32,84 @@ const ESTADO: Record<Phase['estado'], { label: string; color: string; bg: string
 
 const MATERIAL_EMOJI: Record<string, string> = {
   logo: '🎨', whatsapp: '📱', catalogo: '📦',
+}
+
+const TIENDA_STEPS = [
+  { key: 'comprado',      emoji: '🛒', label: 'Dominio comprado' },
+  { key: 'en_desarrollo', emoji: '🛠️', label: 'En desarrollo' },
+  { key: 'terminado',     emoji: '🚀', label: 'Terminada y funcionando' },
+] as const
+
+function TiendaSection({ client }: { client: ClientPublic }) {
+  const activeIdx = client.tienda_estado
+    ? TIENDA_STEPS.findIndex(s => s.key === client.tienda_estado)
+    : -1
+
+  return (
+    <div>
+      <h2 className="font-display font-black text-xl text-ink mb-4">Tu tienda</h2>
+      <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6">
+        {activeIdx === -1 && (
+          <p className="text-sm text-muted mb-5">
+            Aquí verás el estado de tu tienda apenas compremos tu dominio.
+          </p>
+        )}
+        <div className="flex items-start">
+          {TIENDA_STEPS.map((step, i) => {
+            const done    = i < activeIdx
+            const current = i === activeIdx
+            const active  = done || current
+            return (
+              <div key={step.key} className="flex-1 flex flex-col items-center relative">
+                {/* connector line */}
+                {i > 0 && (
+                  <div
+                    className="absolute top-6 right-1/2 w-full h-1 -z-0"
+                    style={{ background: i <= activeIdx ? '#FF6B00' : '#E5E7EB' }}
+                  />
+                )}
+                <div
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-xl z-10 border-4 transition-colors"
+                  style={{
+                    background: active ? '#FFF7ED' : '#F8FAFC',
+                    borderColor: active ? '#FF6B00' : '#E5E7EB',
+                    filter: active ? 'none' : 'grayscale(1) opacity(0.5)',
+                  }}
+                >
+                  {done ? '✅' : step.emoji}
+                </div>
+                <p
+                  className={`text-[11px] sm:text-xs font-bold mt-2 text-center px-1 ${
+                    active ? 'text-ink' : 'text-muted/60'
+                  }`}
+                >
+                  {step.label}
+                </p>
+                {current && (
+                  <span className="text-[10px] font-bold text-brand-500 uppercase tracking-wide mt-0.5">
+                    ● Actual
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+        {client.tienda_estado === 'terminado' && client.store_url && (
+          <div className="mt-5 text-center">
+            <a
+              href={client.store_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 h-11 px-6 rounded-xl font-bold text-white text-sm"
+              style={{ background: 'linear-gradient(135deg, #FF7A33 0%, #FF6B00 100%)', boxShadow: '0 4px 14px rgba(255,107,0,0.35)' }}
+            >
+              Ver mi tienda en vivo <ExternalLink size={15} />
+            </a>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // ── Password gate ─────────────────────────────────────────────────────────────
@@ -198,6 +276,16 @@ function MaterialItem({ mat }: { mat: Material }) {
               <p className="text-sm text-muted">
                 {mat.notas || 'Sin notas adicionales.'}
               </p>
+              {mat.archivo_url && isImageUrl(mat.archivo_url) && (
+                <a href={mat.archivo_url} target="_blank" rel="noopener noreferrer" className="block mt-3">
+                  <img
+                    src={mat.archivo_url}
+                    alt={mat.titulo}
+                    className="max-h-40 rounded-xl border border-[#E5E7EB] bg-white object-contain"
+                    loading="lazy"
+                  />
+                </a>
+              )}
               {mat.archivo_url && (
                 <a
                   href={mat.archivo_url}
@@ -343,6 +431,9 @@ function ClientDashboard({ data }: { data: PortalData }) {
             />
           </div>
         </div>
+
+        {/* Tienda status */}
+        <TiendaSection client={client} />
 
         {/* Roadmap */}
         <div>
