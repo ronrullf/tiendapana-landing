@@ -1,35 +1,13 @@
 import { motion } from 'framer-motion'
 import { ExternalLink, Quote } from 'lucide-react'
-import { realStores, testimonials } from '@/data/socialProof'
+import { realStores, testimonials, type RealStore } from '@/data/socialProof'
 import { Mascot } from '@/components/Mascot'
-
-interface Store {
-  nombre: string
-  categoria: string
-  url: string
-}
 
 interface Testimonial {
   texto: string
   autor: string
   ciudad: string
 }
-
-// Distinct background treatments per store card so they don't look identical
-const storeAccents = [
-  {
-    gradient: 'linear-gradient(135deg, oklch(35% 0.05 230) 0%, oklch(25% 0.03 220) 100%)',
-    labelColor: 'text-white/80',
-    nameColor: 'text-white',
-    tag: 'Streaming',
-  },
-  {
-    gradient: 'linear-gradient(135deg, oklch(28% 0.04 240) 0%, oklch(20% 0.03 260) 100%)',
-    labelColor: 'text-white/80',
-    nameColor: 'text-white',
-    tag: 'Gaming',
-  },
-]
 
 export function SocialProof() {
   return (
@@ -59,76 +37,75 @@ export function SocialProof() {
             Prueba social
           </span>
           <h2 className="font-display font-black text-3xl md:text-5xl text-ink mb-4">
-            Tiendas que confiaron en nosotros
+            Panitas que ya confían en nosotros
           </h2>
           <p className="text-base text-muted max-w-2xl mx-auto">
-            Más de 30 tiendas construidas en Caracas, Valencia, Maracaibo y Barquisimeto.
-            Aquí algunas que puedes ver en vivo.
+            Tiendas, consultas y negocios reales construidos por nuestro equipo.
+            Todos en vivo — dales clic y compruébalo tú mismo.
           </p>
         </motion.div>
 
-        {/* Real stores */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-16">
-          {(realStores as Store[]).map((store, i) => {
-            const accent = storeAccents[i] ?? storeAccents[0]
-            return (
-              <motion.div
-                key={store.nombre}
-                className="rounded-2xl overflow-hidden border border-border hover:border-brand-300 hover:shadow-lg transition-all duration-300 group"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.45, delay: i * 0.1 }}
+        {/* Real stores — semiventanas */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-16">
+          {realStores.map((store: RealStore, i) => (
+            <motion.a
+              key={store.nombre}
+              href={store.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-2xl overflow-hidden border border-border bg-white transition-all duration-300 group flex flex-col hover:border-brand-500 hover:-translate-y-1"
+              style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+              whileHover={{ boxShadow: '0 12px 32px rgba(255,107,0,0.22)' }}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.45, delay: (i % 3) * 0.08 }}
+            >
+              {/* Semiventana — fake browser chrome */}
+              <div
+                className="relative h-40 flex flex-col justify-between p-4"
+                style={{ background: store.gradient }}
               >
-                {/* Store "screenshot" preview */}
-                <div
-                  className="relative h-44 flex flex-col justify-between p-5"
-                  style={{ background: accent.gradient }}
-                >
-                  {/* Fake browser chrome */}
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                    <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                    <div className="flex-1 h-5 rounded-md bg-white/10 ml-2 flex items-center px-2">
-                      <span className="text-[10px] text-white/50 font-mono truncate">{store.url.replace('https://', '')}</span>
-                    </div>
-                  </div>
-
-                  {/* Store name as mock content */}
-                  <div>
-                    <span className={`text-xs font-semibold uppercase tracking-widest ${accent.labelColor} mb-1 block`}>
-                      {accent.tag}
+                <div className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+                  <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+                  <div className="flex-1 h-5 rounded-md bg-white/10 ml-2 flex items-center px-2 min-w-0">
+                    <span className="text-[10px] text-white/50 font-mono truncate">
+                      {store.url.replace('https://', '').replace(/\/$/, '')}
                     </span>
-                    <span className={`font-display font-black text-3xl ${accent.nameColor}`}>
-                      {store.nombre}
-                    </span>
-                  </div>
-
-                  {/* Live dot */}
-                  <div className="absolute top-5 right-5 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                    <span className="text-[10px] text-white/60 font-medium">en vivo</span>
                   </div>
                 </div>
 
-                <div className="p-4 bg-white flex items-center justify-between">
-                  <div>
-                    <p className="font-display font-bold text-base text-ink">{store.nombre}</p>
-                    <p className="text-xs text-muted mt-0.5">{store.categoria}</p>
-                  </div>
-                  <a
-                    href={store.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 text-sm font-semibold text-brand-500 hover:text-brand-600 transition-colors min-h-[44px] min-w-[44px] justify-end group-hover:gap-2"
-                  >
-                    Ver tienda <ExternalLink size={14} />
-                  </a>
+                <div>
+                  <span className="text-[11px] font-semibold uppercase tracking-widest text-white/70 mb-1 block">
+                    {store.tag}
+                  </span>
+                  <span className="font-display font-black text-2xl text-white leading-tight block">
+                    {store.nombre}
+                  </span>
                 </div>
-              </motion.div>
-            )
-          })}
+
+                {/* Live dot */}
+                <div className="absolute top-4 right-4 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-[10px] text-white/60 font-medium">en vivo</span>
+                </div>
+              </div>
+
+              {/* Card body */}
+              <div className="p-4 flex flex-col gap-2 flex-1">
+                <div>
+                  <p className="font-display font-bold text-base text-ink">{store.nombre}</p>
+                  <p className="text-xs text-brand-500 font-semibold mt-0.5">{store.categoria}</p>
+                </div>
+                <p className="text-sm text-muted leading-relaxed flex-1">{store.descripcion}</p>
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-brand-500 group-hover:text-brand-600 group-hover:gap-2.5 transition-all min-h-[44px] items-center">
+                  Ver en vivo <ExternalLink size={14} />
+                </span>
+              </div>
+            </motion.a>
+          ))}
         </div>
 
         {/* Testimonials */}
