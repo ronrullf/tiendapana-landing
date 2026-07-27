@@ -1,3 +1,4 @@
+import { useState, useRef, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import { ExternalLink, Quote } from 'lucide-react'
 import { realStores, testimonials, type RealStore } from '@/data/socialProof'
@@ -7,6 +8,90 @@ interface Testimonial {
   texto: string
   autor: string
   ciudad: string
+}
+
+const SHOT_WIDTH  = 800
+const MAX_RETRIES = 4     // mShots genera el screenshot en background la 1ra vez
+const RETRY_DELAY = 2500
+
+/** Live screenshot of the site via WordPress mShots (free, cached, no API key).
+ *  While mShots is still generating it serves a small grey placeholder with a 200,
+ *  so we detect it by width and retry. Falls back to the branded gradient. */
+function StorePreview({ store }: { store: RealStore }) {
+  const [ready, setReady]   = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const shot = `https://s0.wp.com/mshots/v1/${encodeURIComponent(store.url)}?w=${SHOT_WIDTH}${
+    attempt ? `&retry=${attempt}` : ''
+  }`
+
+  const retryOrFail = useCallback(() => {
+    setAttempt(a => {
+      if (a >= MAX_RETRIES) {
+        setFailed(true)
+        return a
+      }
+      timer.current = setTimeout(() => setAttempt(x => x + 1), RETRY_DELAY)
+      return a
+    })
+  }, [])
+
+  const evaluate = useCallback((img: HTMLImageElement) => {
+    // mShots' "not ready yet" placeholder comes back far narrower than requested
+    if (img.naturalWidth < SHOT_WIDTH * 0.9) {
+      retryOrFail()
+      return
+    }
+    if (timer.current) clearTimeout(timer.current)
+    setReady(true)
+  }, [retryOrFail])
+
+  /** Ref callback also covers cache hits, where onLoad fires before React attaches it. */
+  const imgRef = useCallback((img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth > 0) evaluate(img)
+  }, [evaluate])
+
+  return (
+    <div className="relative h-40 overflow-hidden" style={{ background: store.gradient }}>
+      {/* Branded fallback — visible until the real screenshot is ready */}
+      <div
+        className={`absolute inset-0 flex flex-col justify-end p-4 transition-opacity duration-500 ${
+          ready ? 'opacity-0' : 'opacity-100'
+        }`}
+      >
+        <span className="text-[11px] font-semibold uppercase tracking-widest text-white/70 mb-1 block">
+          {store.tag}
+        </span>
+        <span className="font-display font-black text-2xl text-white leading-tight block">
+          {store.nombre}
+        </span>
+      </div>
+
+      {/* Real site screenshot */}
+      {!failed && (
+        <img
+          key={attempt}
+          ref={imgRef}
+          src={shot}
+          alt={`Vista previa de ${store.nombre}`}
+          loading="lazy"
+          onLoad={e => evaluate(e.currentTarget)}
+          onError={retryOrFail}
+          className={`absolute inset-0 w-full h-full object-cover object-top transition-opacity duration-700 ${
+            ready ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      )}
+
+      {/* Live chip */}
+      <div className="absolute top-3 right-3 flex items-center gap-1.5 bg-black/45 backdrop-blur-sm rounded-full px-2.5 py-1 z-10">
+        <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+        <span className="text-[10px] text-white/90 font-medium">en vivo</span>
+      </div>
+    </div>
+  )
 }
 
 export function SocialProof() {
@@ -62,36 +147,19 @@ export function SocialProof() {
               transition={{ duration: 0.45, delay: (i % 3) * 0.08 }}
             >
               {/* Semiventana — fake browser chrome */}
-              <div
-                className="relative h-40 flex flex-col justify-between p-4"
-                style={{ background: store.gradient }}
-              >
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                  <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-                  <div className="flex-1 h-5 rounded-md bg-white/10 ml-2 flex items-center px-2 min-w-0">
-                    <span className="text-[10px] text-white/50 font-mono truncate">
-                      {store.url.replace('https://', '').replace(/\/$/, '')}
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-[11px] font-semibold uppercase tracking-widest text-white/70 mb-1 block">
-                    {store.tag}
+              <div className="flex items-center gap-1.5 px-4 py-2.5 bg-[oklch(25%_0.02_260)]">
+                <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+                <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+                <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+                <div className="flex-1 h-5 rounded-md bg-white/10 ml-2 flex items-center px-2 min-w-0">
+                  <span className="text-[10px] text-white/50 font-mono truncate">
+                    {store.url.replace('https://', '').replace(/\/$/, '')}
                   </span>
-                  <span className="font-display font-black text-2xl text-white leading-tight block">
-                    {store.nombre}
-                  </span>
-                </div>
-
-                {/* Live dot */}
-                <div className="absolute top-4 right-4 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-[10px] text-white/60 font-medium">en vivo</span>
                 </div>
               </div>
+
+              {/* Live preview del sitio */}
+              <StorePreview store={store} />
 
               {/* Card body */}
               <div className="p-4 flex flex-col gap-2 flex-1">
