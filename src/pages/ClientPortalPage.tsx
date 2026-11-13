@@ -120,7 +120,7 @@ function PasswordGate({ slug, initialCode, onSuccess }: { slug: string; initialC
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
   const autoTried = useRef(false)
-  const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER as string
+  const WA_NUMBER = (import.meta.env.VITE_WHATSAPP_NUMBER as string) || '584241825739'
 
   const attempt = useCallback(async (codeValue: string) => {
     setError('')
@@ -308,7 +308,7 @@ function MaterialItem({ mat }: { mat: Material }) {
 
 function ClientDashboard({ data }: { data: PortalData }) {
   const { client, phases, materials, tutorials } = data
-  const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER as string
+  const WA_NUMBER = (import.meta.env.VITE_WHATSAPP_NUMBER as string) || '584241825739'
 
   const currentPhase  = phases.find(p => p.estado === 'en_progreso') ?? phases.find(p => p.estado === 'bloqueado')
   const completedCount = phases.filter(p => p.estado === 'completado').length

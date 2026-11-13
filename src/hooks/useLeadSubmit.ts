@@ -7,7 +7,7 @@ import { saveLeadToSupabase } from '@/lib/leads'
 import { buildLeadWhatsAppMessage } from '@/lib/whatsapp'
 import { trackWhatsAppConversion } from '@/lib/metaPixel'
 
-const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER as string
+const WHATSAPP_NUMBER = (import.meta.env.VITE_WHATSAPP_NUMBER as string) || '584241825739'
 
 export function useLeadSubmit(fuente: 'hero' | 'final' | 'sticky-mobile') {
   const [submitted, setSubmitted] = useState(false)

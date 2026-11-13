@@ -79,7 +79,7 @@ export default function DemoRequestPage() {
   })
 
   const watchedValues = watch()
-  const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER as string
+  const WA_NUMBER = (import.meta.env.VITE_WHATSAPP_NUMBER as string) || '584241825739'
 
   const onSubmit = (data: FormValues) => {
     if (!WA_NUMBER) {

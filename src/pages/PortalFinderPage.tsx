@@ -10,7 +10,7 @@ export default function PortalFinderPage() {
   const [show, setShow]       = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError]     = useState('')
-  const WA_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER as string
+  const WA_NUMBER = (import.meta.env.VITE_WHATSAPP_NUMBER as string) || '584241825739'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
