@@ -8,11 +8,13 @@ import PortalFinderPage from './pages/PortalFinderPage'
 import AdminPage from './pages/AdminPage'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ClarityScript } from './components/ClarityScript'
+import { MetaPixelTracker } from './components/MetaPixelTracker'
 
 export default function App() {
   return (
     <BrowserRouter>
       <ClarityScript />
+      <MetaPixelTracker />
       <Routes>
         <Route path="/" element={<ErrorBoundary><Landing /></ErrorBoundary>} />
         <Route path="/pide-tu-demo" element={<ErrorBoundary><DemoRequestPage /></ErrorBoundary>} />

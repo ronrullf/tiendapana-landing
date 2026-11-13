@@ -26,9 +26,9 @@ export function Header() {
       <div className="max-w-6xl mx-auto px-5 md:px-8 lg:px-12 h-16 flex items-center justify-between gap-4">
         {/* Logo */}
         <a href="/" className="flex items-center gap-2 shrink-0">
-          <img src="/logo.png" alt="Tienda Pana" className="w-8 h-8 object-contain" />
+          <img src="/logo.png" alt="naguaralabs" className="w-8 h-8 object-contain" />
           <span className="font-display font-black text-lg text-ink tracking-tight hidden sm:inline">
-            Tienda<span className="text-brand-500">Pana</span>
+            naguara<span className="text-brand-500">labs</span>
           </span>
         </a>
 

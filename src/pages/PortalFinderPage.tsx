@@ -40,9 +40,9 @@ export default function PortalFinderPage() {
       >
         <div className="flex justify-center mb-8">
           <Link to="/" className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="Tienda Pana" className="w-10 h-10 object-contain" />
+            <img src="/logo.png" alt="naguaralabs" className="w-10 h-10 object-contain" />
             <span className="font-display font-black text-xl text-ink">
-              Tienda<span className="text-brand-500">Pana</span>
+              naguara<span className="text-brand-500">labs</span>
             </span>
           </Link>
         </div>

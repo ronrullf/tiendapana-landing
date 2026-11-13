@@ -15,9 +15,9 @@ export function Footer() {
 
         {/* Logo */}
         <a href="/" className="flex items-center gap-2.5">
-          <img src="/logo.png" alt="Tienda Pana" className="w-9 h-9 object-contain" />
+          <img src="/logo.png" alt="naguaralabs" className="w-9 h-9 object-contain" />
           <span className="font-display font-black text-xl text-ink tracking-tight">
-            Tienda<span className="text-brand-500">Pana</span>
+            naguara<span className="text-brand-500">labs</span>
           </span>
         </a>
 

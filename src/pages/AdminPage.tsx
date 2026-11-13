@@ -66,9 +66,9 @@ function AdminLogin({ onSuccess }: { onSuccess: () => void }) {
       >
         <div className="flex justify-center mb-8">
           <div className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="Tienda Pana" className="w-10 h-10 object-contain" />
+            <img src="/logo.png" alt="naguaralabs" className="w-10 h-10 object-contain" />
             <span className="font-display font-black text-xl text-ink">
-              Tienda<span className="text-brand-500">Pana</span>
+              naguara<span className="text-brand-500">labs</span>
               <span className="ml-2 text-xs font-bold bg-brand-500 text-white px-2 py-0.5 rounded-full align-middle">ADMIN</span>
             </span>
           </div>
@@ -1021,9 +1021,9 @@ export default function AdminPage() {
       <header className="sticky top-0 z-20 border-b border-[#E5E7EB] bg-white shadow-sm">
         <div className="max-w-5xl mx-auto px-5 md:px-8 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Tienda Pana" className="w-7 h-7 object-contain" />
+            <img src="/logo.png" alt="naguaralabs" className="w-7 h-7 object-contain" />
             <span className="font-display font-black text-base text-ink">
-              Tienda<span className="text-brand-500">Pana</span>
+              naguara<span className="text-brand-500">labs</span>
             </span>
             <span className="ml-1 text-[10px] font-bold bg-brand-500 text-white px-2 py-0.5 rounded-full uppercase tracking-wide">
               Admin

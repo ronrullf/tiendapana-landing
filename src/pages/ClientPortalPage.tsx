@@ -168,9 +168,9 @@ function PasswordGate({ slug, initialCode, onSuccess }: { slug: string; initialC
       >
         <div className="flex justify-center mb-8">
           <div className="flex items-center gap-2.5">
-            <img src="/logo.png" alt="Tienda Pana" className="w-10 h-10 object-contain" />
+            <img src="/logo.png" alt="naguaralabs" className="w-10 h-10 object-contain" />
             <span className="font-display font-black text-xl text-ink">
-              Tienda<span className="text-brand-500">Pana</span>
+              naguara<span className="text-brand-500">labs</span>
             </span>
           </div>
         </div>
@@ -323,9 +323,9 @@ function ClientDashboard({ data }: { data: PortalData }) {
       <header className="sticky top-0 z-20 border-b border-[#E5E7EB] bg-white/90 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto px-5 md:px-8 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="Tienda Pana" className="w-6 h-6 object-contain" />
+            <img src="/logo.png" alt="naguaralabs" className="w-6 h-6 object-contain" />
             <span className="font-display font-black text-[15px] text-ink">
-              Tienda<span className="text-brand-500">Pana</span>
+              naguara<span className="text-brand-500">labs</span>
             </span>
           </div>
           <span className="text-xs text-muted font-medium hidden sm:block">

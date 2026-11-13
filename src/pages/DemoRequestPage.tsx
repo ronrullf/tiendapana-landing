@@ -9,13 +9,11 @@ import { trackFormularioDemoEnviado } from '@/lib/analytics'
 import { showFieldToast } from '@/lib/fieldToast'
 import { SuccessScreen } from '@/components/demo-request/SuccessScreen'
 import { buildWhatsAppMessage, type DemoFormData } from '@/lib/buildWhatsAppMessage'
+import { trackWhatsAppConversion } from '@/lib/metaPixel'
 
 // ─── Zod schema ───────────────────────────────────────────────────────────────
 const schema = z.object({
-  nombre:    z.string().min(2, "Necesito tu nombre pa' saber cómo decirte").max(50),
-  instagram: z.string()
-               .min(1, 'Necesito el nombre de tu tienda en Instagram')
-               .regex(/^[a-zA-Z0-9._]{1,30}$/, 'Solo letras, números, puntos y guiones bajos'),
+  nombre: z.string().min(2, "Necesito tu nombre pa' saber cómo decirte").max(50),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -77,7 +75,7 @@ export default function DemoRequestPage() {
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { nombre: '', instagram: '' },
+    defaultValues: { nombre: '' },
   })
 
   const watchedValues = watch()
@@ -92,9 +90,14 @@ export default function DemoRequestPage() {
     setLoading(true)
 
     const cleanData: DemoFormData = {
-      nombre:    data.nombre,
-      instagram: data.instagram.replace(/^@/, ''),
+      nombre: data.nombre.trim(),
     }
+
+    // Meta Pixel: registrar eventos de conversión (Lead y Contact)
+    trackWhatsAppConversion({
+      content_name: 'formulario_demo_whatsapp',
+      name: cleanData.nombre,
+    })
 
     const message = buildWhatsAppMessage(cleanData)
     const url = `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(message)}`
@@ -109,15 +112,12 @@ export default function DemoRequestPage() {
   }
 
   const FIELD_LABELS: Partial<Record<keyof FormValues, string>> = {
-    nombre:    'tu nombre',
-    instagram: 'el nombre de tu tienda en Instagram',
+    nombre: 'tu nombre',
   }
 
   const onError = (errs: typeof errors) => {
-    const order: (keyof FormValues)[] = ['nombre', 'instagram']
-    const firstField = order.find(f => errs[f])
-    if (firstField && FIELD_LABELS[firstField]) {
-      showFieldToast(FIELD_LABELS[firstField]!)
+    if (errs.nombre && FIELD_LABELS.nombre) {
+      showFieldToast(FIELD_LABELS.nombre)
     }
     setTimeout(() => {
       document.querySelector('[data-field-error]')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
@@ -131,8 +131,8 @@ export default function DemoRequestPage() {
         style={{ background: 'rgba(254,243,226,0.92)', backdropFilter: 'blur(8px)' }}>
         <div className="max-w-5xl mx-auto px-5 md:px-8 h-14 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2 font-display font-black text-base text-[#0F172A] tracking-tight">
-            <img src="/logo.png" alt="Tienda Pana" className="w-7 h-7 object-contain" />
-            Tienda<span className="text-[#F97316]">Pana</span>
+            <img src="/logo.png" alt="naguaralabs" className="w-7 h-7 object-contain" />
+            naguara<span className="text-[#F97316]">labs</span>
           </Link>
           <Link to="/" className="text-sm text-[#64748B] hover:text-[#F97316] transition-colors">
             ← Volver
@@ -179,31 +179,6 @@ export default function DemoRequestPage() {
                     onBlur={e  => { e.target.style.boxShadow = 'none'; if (!errors.nombre) e.target.style.borderColor = '#E5E7EB' }}
                   />
                   <div data-field-error><FieldError message={errors.nombre?.message} /></div>
-                </motion.div>
-
-                {/* Instagram */}
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-                  <Label required>¿Cuál es el nombre de tu tienda en Instagram?</Label>
-                  <div className="flex items-center">
-                    <span
-                      className="h-12 px-3 flex items-center border border-r-0 border-[#E5E7EB] bg-[#F1F5F9] text-[#64748B] font-semibold text-base select-none shrink-0"
-                      style={{ borderRadius: '12px 0 0 12px' }}
-                    >
-                      @
-                    </span>
-                    <input
-                      {...register('instagram')}
-                      placeholder="tutienda"
-                      style={{ ...inputStyle(!!errors.instagram), borderRadius: '0 12px 12px 0', borderLeft: 'none' }}
-                      onFocus={e => { e.target.style.boxShadow = '0 0 0 3px rgba(249,115,22,0.15)'; e.target.style.borderColor = '#F97316' }}
-                      onBlur={e  => {
-                        e.target.style.boxShadow = 'none'
-                        if (!errors.instagram) e.target.style.borderColor = '#E5E7EB'
-                        if (e.target.value.startsWith('@')) e.target.value = e.target.value.replace(/^@/, '')
-                      }}
-                    />
-                  </div>
-                  <div data-field-error><FieldError message={errors.instagram?.message} /></div>
                 </motion.div>
 
                 {/* Submit */}

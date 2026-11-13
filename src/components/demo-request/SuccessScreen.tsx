@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
+import { trackWhatsAppConversion } from '@/lib/metaPixel'
 
 interface Props {
   nombre: string
@@ -49,6 +50,7 @@ export function SuccessScreen({ nombre, waUrl }: Props) {
         href={waUrl}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => trackWhatsAppConversion({ content_name: 'whatsapp_manual_click' })}
         className="flex items-center justify-center gap-2 w-full max-w-xs h-14 rounded-2xl font-semibold text-white text-base transition-all duration-200"
         style={{
           background: '#25D366',
